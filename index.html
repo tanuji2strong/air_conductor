@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html data-theme="dark" lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Conductor Sync</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <h1>Conductor Sync</h1>
+  <span class="tagline">follow the rhythm · score points</span>
+  <div class="header-right">
+    <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="Toggle light/dark">☀</button>
+    <button class="upload-btn" onclick="document.getElementById('fileInput').click()">Load MIDI</button>
+    <input type="file" id="fileInput" accept=".mid,.midi">
+  </div>
+</header>
+
+<div class="app">
+  <!-- Camera -->
+  <div class="camera-wrap">
+    <video id="videoEl" playsinline></video>
+    <canvas id="canvasEl"></canvas>
+    <div class="beat-flash" id="beatFlash"></div>
+
+    <div class="countdown-overlay" id="countdownOverlay">
+      <div class="countdown-num" id="countdownNum">3</div>
+      <div class="countdown-sub">Get ready to follow the beat!</div>
+    </div>
+
+    <div class="upload-overlay" id="uploadOverlay">
+      <h2>Conductor Sync</h2>
+      <p>Load a MIDI file — the music plays automatically.<br>
+         Follow the beat with your arm to score.<br><br>
+         <span style="color:var(--gold)">↓</span> Beat 1 is mandatory
+         &nbsp;<span style="color:var(--gold)">+5</span> /
+         <span style="color:var(--red)">−2</span><br>
+         Other beats are optional &nbsp;<span style="color:var(--green)">+1</span> each
+      </p>
+      <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+        Load MIDI File
+      </button>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+
+    <div class="panel">
+      <div class="panel-label">File</div>
+      <div class="file-name" id="fileName">—</div>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-label">Score</div>
+      <div class="score-big" id="scoreVal">0</div>
+      <div class="score-row">
+        <div class="score-item">
+          <label>Streak</label>
+          <div class="val" id="streakVal">0</div>
+        </div>
+        <div class="score-item">
+          <label>B1 Acc</label>
+          <div class="val" id="accuracyVal">—</div>
+        </div>
+        <div class="score-item">
+          <label>BPM</label>
+          <div class="val" id="fileBpm">—</div>
+        </div>
+      </div>
+      <div class="score-chips">
+        <span class="chip chip-b1"  title="Beat 1 hits (+5)">♩ <span id="b1HitsVal">0</span></span>
+        <span class="chip chip-bon" title="Bonus hits (+1)">✦ <span id="bonusVal">0</span></span>
+        <span class="chip chip-mis" title="Beat 1 misses (−2)">✗ <span id="b1MissVal">0</span></span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-label">Beat Guide</div>
+      <div class="guide-list" id="guideList"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-label">Time Signature</div>
+      <div class="ts-label" id="tsLabel">4 / 4</div>
+      <div class="pattern-wrap">
+        <div class="panel-label" style="margin-top:12px;margin-bottom:8px">Conducting Path</div>
+        <svg id="patternSvg" viewBox="0 0 256 110" fill="none" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-label">Sensitivity</div>
+      <div class="sens-row">
+        <label>Low ← → High</label>
+        <input type="range" id="sensSlider" min="30" max="150" value="60"
+               oninput="onSensChange(this.value)">
+        <span class="sens-val" id="sensVal">1.0×</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-label">Controls</div>
+      <div class="kbd-hints">
+        <kbd>R</kbd> restart song &amp; score<br>
+        <kbd>M</kbd> mute / unmute<br>
+        <kbd>+</kbd> / <kbd>−</kbd> sensitivity<br>
+        <kbd>L</kbd> toggle light mode
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/soundfont-player@0.12.0/dist/soundfont-player.min.js"></script>
+<script src="app.js"></script>
+
+</body>
+</html>
