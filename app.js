@@ -499,6 +499,7 @@ document.getElementById('fileInput').addEventListener('change',async(e)=>{
 
     scheduler=new AutoScheduler(analyzer,audioCtx,instrument,(beatPerfMs,beatNum)=>{
       judge.addBeat(beatPerfMs,beatNum);
+      detector.expected = beatNum;
       _prevBeatMs=_nextBeatMs;
       _currentBeatNum=_nextBeatNum;
       _nextBeatMs=beatPerfMs;
@@ -813,7 +814,7 @@ function startCamera(){
         }
         judge.checkMisses(()=>{
           flashOverlay(224,82,82);
-          detector.forceAdvance();
+         
           updateScoreUI();
         });
       }
