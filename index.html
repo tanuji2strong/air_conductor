@@ -14,6 +14,7 @@
   <span class="tagline">follow the rhythm · score points</span>
   <div class="header-right">
     <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="Toggle light/dark">☀</button>
+    <button class="theme-btn pause-btn" id="pauseBtn" onclick="togglePause()" title="Pause" disabled>⏸</button>
     <button class="upload-btn" onclick="document.getElementById('fileInput').click()">Load MIDI</button>
     <input type="file" id="fileInput" accept=".mid,.midi">
   </div>
@@ -94,6 +95,19 @@
     </div>
 
     <div class="panel">
+      <div class="panel-label">Playback Speed</div>
+      <div class="sens-row">
+        <label>Slow ← → Fast</label>
+        <input type="range" id="speedSlider" min="50" max="150" value="100"
+               oninput="onSpeedChange(this.value)">
+        <span class="sens-val" id="speedVal">1.00×</span>
+      </div>
+      <div class="speed-ticks">
+        <span>0.5×</span><span>0.75×</span><span>1×</span><span>1.25×</span><span>1.5×</span>
+      </div>
+    </div>
+
+    <div class="panel">
       <div class="panel-label">Sensitivity</div>
       <div class="sens-row">
         <label>Low ← → High</label>
@@ -107,6 +121,7 @@
       <div class="panel-label">Controls</div>
       <div class="kbd-hints">
         <kbd>R</kbd> restart song &amp; score<br>
+        <kbd>Space</kbd> pause / resume<br>
         <kbd>M</kbd> mute / unmute<br>
         <kbd>+</kbd> / <kbd>−</kbd> sensitivity<br>
         <kbd>L</kbd> toggle light mode

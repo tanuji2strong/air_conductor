@@ -85,7 +85,7 @@ class AutoScheduler {
   constructor(analyzer,ac,instrument,onBeatScheduled){
     this.a=analyzer; this.ac=ac; this.inst=instrument;
     this.onBeatScheduled=onBeatScheduled;
-    this.bpm=analyzer.initialBpm; this.beatS=60/this.bpm;
+    this.bpm=analyzer.initialBpm; this.speedFactor=1.0; this.beatS=60/this.bpm;
     this.ts=[4,4]; this.playing=false; this.muted=false;
     this._nodes=[]; this._AHEAD=0.15;
     this.currentTick=0; this.eventIndex=0;
@@ -97,6 +97,14 @@ class AutoScheduler {
     this.nextBeatAudioTime=this.ac.currentTime+delayS;
   }
   pause(){this.playing=false;this._stopAll();}
+  resume(delayS=0.08){
+    this.nextBeatAudioTime=this.ac.currentTime+delayS;
+    this.playing=true;
+  }
+  setSpeed(factor){
+    this.speedFactor=factor;
+    this.beatS=(60/this.bpm)/factor;
+  }
   reset(){this.playing=false;this.currentTick=0;this.eventIndex=0;this._beatNum=1;this._stopAll();}
   _stopAll(){for(const n of this._nodes)try{n.stop();}catch{}this._nodes=[];}
   _midiName(n){return['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'][n%12]+(Math.floor(n/12)-1);}
@@ -145,7 +153,12 @@ class BeatJudge {
     this.pending=[]; this.lastResult=null; this.lastResultTime=0;
   }
   setBpm(b){this._bpm=b;}
-  get windowMs(){return Math.min(1200,Math.max(1000,(60000/this._bpm)*0.9));}
+  // Window = 55% of beat interval, clamped 380–650ms.
+  // At 120 BPM: 500ms × 0.55 = 275 → 380ms (tight but fair)
+  // At  80 BPM: 750ms × 0.55 = 412ms
+  // At  60 BPM: 1000ms× 0.55 = 550ms
+  // Old code was min(1200,max(1000,…)) — always ≥1000ms, almost 2 beats at 120 BPM.
+  get windowMs(){return Math.min(650,Math.max(380,(60000/this._bpm)*0.55));}
   addBeat(perfTime,beatNum){this.pending.push({perfTime,beatNum,judged:false});}
 
   onGesture(gestureBeat){
@@ -220,19 +233,32 @@ class ConductorDetector {
     const now=performance.now();
     if(now-this.lastFire<this.DEBOUNCE)return null;
     const{V,H,MX,MY}=this,[num]=this.sig;
+
+    // Directional purity guards.
+    // A valid DOWN/UP stroke must be more vertical than horizontal.
+    // A valid LEFT/RIGHT stroke must be clearly more horizontal than vertical —
+    // stricter ratio because lateral conducting strokes are smaller and wrist
+    // rotation easily produces diagonal noise.
+    const vPure=Math.abs(my)>Math.abs(mx)*0.7;   // vert: |my| dominant (loose)
+    const hPure=Math.abs(mx)>Math.abs(my)*1.4;   // horiz: |mx| clearly dominant
+
+    // NOTE: dx/dy (fingertip-relative-to-shoulder position) are intentionally
+    // NOT used as filters here. They bias detection when the user sits off-centre
+    // or holds their arm at a resting angle. Velocity + purity is sufficient.
+
     let fired=false;
     if(num===2){
-      if     (this.expected===1&&my>MY&&dy>V*0.4)             fired=true;
-      else if(this.expected===2&&my<-MY&&dy<-V*0.15)           fired=true;
+      if     (this.expected===1&&my> MY*1.1&&vPure)  fired=true; // Down
+      else if(this.expected===2&&my<-MY     &&vPure)  fired=true; // Up
     }else if(num===3){
-      if     (this.expected===1&&my>MY&&dy>V*0.4)             fired=true;
-      else if(this.expected===2&&mx>MX&&dx>H*0.25)            fired=true;
-      else if(this.expected===3&&my<-MY&&mx>=0&&dy<-V*0.15)   fired=true;
+      if     (this.expected===1&&my> MY*1.1&&vPure)       fired=true; // Down
+      else if(this.expected===2&&mx> MX*1.4&&hPure)       fired=true; // Right
+      else if(this.expected===3&&my<-MY     &&vPure)       fired=true; // Up
     }else{
-      if     (this.expected===1&&my>MY&&dy>V*0.4)             fired=true;
-      else if(this.expected===2&&mx<-MX&&dx<-H*0.25)          fired=true;
-      else if(this.expected===3&&mx>MX&&dx>H*0.25)            fired=true;
-      else if(this.expected===4&&my<-MY&&dy<-V*0.15)          fired=true;
+      if     (this.expected===1&&my> MY*1.1&&vPure)       fired=true; // Down
+      else if(this.expected===2&&mx<-MX*1.4&&hPure)       fired=true; // Left
+      else if(this.expected===3&&mx> MX*1.4&&hPure)       fired=true; // Right
+      else if(this.expected===4&&my<-MY     &&vPure)       fired=true; // Up
     }
     if(fired){const b=this.expected;this.expected=(this.expected%num)+1;this.lastFire=now;return b;}
     return null;
@@ -247,7 +273,9 @@ let analyzer=null,scheduler=null,judge=null,audioCtx=null,instrument=null;
 const detector=new ConductorDetector([4,4]);
 let currentTS=[4,4],bpm0=120;
 let trail=[],prevIx=null,prevIy=null,cameraStarted=false;
+let smoothMx=0,smoothMy=0;  // EMA-smoothed velocity for gesture detection
 let _prevBeatMs=0,_nextBeatMs=0,_currentBeatNum=1,_nextBeatNum=1;
+let isPaused=false;
 
 
 // ═══════════════════════════════════════════
@@ -406,6 +434,36 @@ function onSensChange(val){
 
 
 // ═══════════════════════════════════════════
+//  PAUSE / RESUME
+// ═══════════════════════════════════════════
+function togglePause(){
+  if(!scheduler)return;
+  isPaused=!isPaused;
+  const btn=document.getElementById('pauseBtn');
+  if(isPaused){
+    scheduler.pause();
+    if(btn){btn.textContent='▶';btn.title='Resume';}
+  }else{
+    if(audioCtx?.state==='suspended')audioCtx.resume();
+    scheduler.resume(0.1);
+    if(btn){btn.textContent='⏸';btn.title='Pause';}
+  }
+}
+
+
+// ═══════════════════════════════════════════
+//  PLAYBACK SPEED
+// ═══════════════════════════════════════════
+function onSpeedChange(val){
+  const factor=Number(val)/100;
+  if(scheduler)scheduler.setSpeed(factor);
+  if(judge)judge.setBpm(bpm0*factor);
+  document.getElementById('speedVal').textContent=factor.toFixed(2)+'×';
+  document.getElementById('fileBpm').textContent=(bpm0*factor).toFixed(1);
+}
+
+
+// ═══════════════════════════════════════════
 //  INDEPENDENT SCHEDULER TICK LOOP
 //  Runs via rAF regardless of MediaPipe status.
 //  This is the main fix — audio scheduling must
@@ -499,7 +557,9 @@ document.getElementById('fileInput').addEventListener('change',async(e)=>{
 
     scheduler=new AutoScheduler(analyzer,audioCtx,instrument,(beatPerfMs,beatNum)=>{
       judge.addBeat(beatPerfMs,beatNum);
-      detector.expected = beatNum;
+      // NOTE: do NOT set detector.expected here — the scheduler fires _AHEAD=150ms
+      // early, which would make the detector look for the wrong beat direction
+      // while the previous beat is still playing. Detector syncs to clock in camera loop.
       _prevBeatMs=_nextBeatMs;
       _currentBeatNum=_nextBeatNum;
       _nextBeatMs=beatPerfMs;
@@ -508,6 +568,12 @@ document.getElementById('fileInput').addEventListener('change',async(e)=>{
     scheduler.setTS(currentTS);
 
     document.getElementById('uploadOverlay').style.display='none';
+    isPaused=false;
+    const pb=document.getElementById('pauseBtn');
+    if(pb){pb.disabled=false;pb.textContent='⏸';pb.title='Pause';}
+    // Reset speed slider to 100% for new file
+    const ss=document.getElementById('speedSlider');
+    if(ss){ss.value=100;document.getElementById('speedVal').textContent='1.00×';}
     updateScoreUI();
 
     // Start audio/countdown regardless of camera state
@@ -779,8 +845,13 @@ function startCamera(){
       const ix=mirX(idx),iy=mirY(idx);
 
       const dx=ix-sx,dy=iy-sy;
-      const mx=prevIx!==null?ix-prevIx:0;
-      const my=prevIy!==null?iy-prevIy:0;
+      // Raw per-frame deltas — single frames are noisy (wrist tremor, MP jitter).
+      // Apply EMA (α=0.45) so a single spike doesn't fire the detector.
+      const rawMx=prevIx!==null?ix-prevIx:0;
+      const rawMy=prevIy!==null?iy-prevIy:0;
+      smoothMx=smoothMx*0.55+rawMx*0.45;
+      smoothMy=smoothMy*0.55+rawMy*0.45;
+      const mx=smoothMx, my=smoothMy;
       prevIx=ix;prevIy=iy;
 
       // Skeleton
@@ -798,12 +869,36 @@ function startCamera(){
         ctx.beginPath();ctx.moveTo(trail[i-1][0],trail[i-1][1]);ctx.lineTo(trail[i][0],trail[i][1]);ctx.stroke();
       }
 
-      // Fingertip
+      // Fingertip — with "window open" ring when judge is accepting gestures
       ctx.fillStyle='#c9a84c';ctx.shadowColor='#c9a84c';ctx.shadowBlur=12;
       ctx.beginPath();ctx.arc(ix,iy,6,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
 
+      // Judge window indicator: a pulsing ring around the fingertip when the
+      // current beat's acceptance window is open (last 55% of beat interval).
+      if(scheduler?.playing&&_prevBeatMs>0){
+        const _total=_nextBeatMs-_prevBeatMs;
+        const _elapsed=performance.now()-_prevBeatMs;
+        const bp=_total>50?Math.min(1,Math.max(0,_elapsed/_total)):0;
+        const windowOpen=bp>0.45;
+        if(windowOpen){
+          const ringAlpha=Math.min(0.9,(bp-0.45)/0.55);
+          const beats=BEAT_DATA[currentTS.join(',')]||BEAT_DATA['4,4'];
+          const info=beats.find(b=>b.beat===_currentBeatNum)||beats[0];
+          const ringCol=info.isMain?`rgba(201,168,76,${ringAlpha})`:`rgba(80,160,255,${ringAlpha})`;
+          const ringR=10+ringAlpha*6;
+          ctx.beginPath();ctx.arc(ix,iy,ringR,0,Math.PI*2);
+          ctx.strokeStyle=ringCol;ctx.lineWidth=2;
+          ctx.shadowColor=ringCol;ctx.shadowBlur=ringAlpha*10;
+          ctx.stroke();ctx.shadowBlur=0;
+        }
+      }
+
       // Gesture detection + judge
       if(scheduler?.playing&&judge){
+        // Sync detector to the actual current clock beat (not the pre-scheduled one).
+        // This prevents the 150ms look-ahead in onBeatScheduled from making the
+        // detector watch for the wrong direction while the previous beat plays.
+        if(_prevBeatMs>0) detector.expected=_currentBeatNum;
         const beat=detector.tryFire(dx,dy,mx,my);
         if(beat!==null){
           const result=judge.onGesture(beat);
@@ -819,7 +914,7 @@ function startCamera(){
         });
       }
     } else {
-      prevIx=prevIy=null;trail=[];
+      prevIx=prevIy=null;smoothMx=0;smoothMy=0;trail=[];
     }
 
     // Beat bar (top) + Arrow cue (bottom)
@@ -877,8 +972,13 @@ document.addEventListener('keydown',e=>{
   if(e.key==='r'||e.key==='R'){
     if(scheduler){scheduler.reset();startCountdown();}
     if(judge){judge.reset();updateScoreUI();}
-    detector.reset();prevIx=prevIy=null;trail=[];
+    detector.reset();prevIx=prevIy=null;smoothMx=0;smoothMy=0;trail=[];
     _prevBeatMs=0;_nextBeatMs=0;_currentBeatNum=1;_nextBeatNum=1;
+    isPaused=false;
+    const pb=document.getElementById('pauseBtn');
+    if(pb){pb.textContent='⏸';pb.title='Pause';}
+  }else if(e.key===' '){
+    e.preventDefault();togglePause();
   }else if(e.key==='m'||e.key==='M'){
     if(scheduler)scheduler.muted=!scheduler.muted;
   }else if(e.key==='+'||e.key==='='){
