@@ -1,21 +1,21 @@
 <!DOCTYPE html>
-<html data-theme="dark" lang="en">
+<html data-theme="dark" lang="zh-TW">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Conductor Sync</title>
+  <title>空氣指揮家</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <header>
-  <h1>Conductor Sync</h1>
-  <span class="tagline">follow the rhythm · score points</span>
+  <h1>空氣指揮家</h1>
+  <span class="tagline">跟上節拍 · 累積分數</span>
   <div class="header-right">
-    <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="Toggle light/dark">☀</button>
-    <button class="theme-btn pause-btn" id="pauseBtn" onclick="togglePause()" title="Pause" disabled>⏸</button>
-    <button class="upload-btn" onclick="document.getElementById('fileInput').click()">Load MIDI</button>
+    <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="切換亮色／暗色模式">☀</button>
+    <button class="theme-btn pause-btn" id="pauseBtn" onclick="togglePause()" title="暫停" disabled>⏸</button>
+    <button class="upload-btn" onclick="document.getElementById('fileInput').click()">載入 MIDI</button>
     <input type="file" id="fileInput" accept=".mid,.midi">
   </div>
 </header>
@@ -30,20 +30,20 @@
 
     <div class="countdown-overlay" id="countdownOverlay">
       <div class="countdown-num" id="countdownNum">3</div>
-      <div class="countdown-sub">Get ready to follow the beat!</div>
+      <div class="countdown-sub">準備好跟上節拍！</div>
     </div>
 
     <div class="upload-overlay" id="uploadOverlay">
-      <h2>Conductor Sync</h2>
-      <p>Load a MIDI file — the music plays automatically.<br>
-         Follow the beat with your arm to score.<br><br>
-         Every beat 1 in sync &nbsp;<span style="color:var(--green)">+5</span><br>
-         Beats that are not beat 1 are bonuses &nbsp;<span style="color:var(--green)">+1</span><br>
-        
-         No penalty for misses
+      <h2>空氣指揮家</h2>
+      <p>載入 MIDI 檔案——音樂會自動播放。<br>
+         用手臂跟上節拍來得分。<br><br>
+         第一拍同步 &nbsp;<span style="color:var(--green)">+5</span><br>
+         其他拍為加分拍 &nbsp;<span style="color:var(--green)">+1</span><br>
+
+         失誤不扣分
       </p>
       <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
-        Load MIDI File
+        載入 MIDI 檔案
       </button>
     </div>
   </div>
@@ -52,28 +52,28 @@
   <div class="sidebar">
 
     <div class="panel panel-collapsible">
-      <div class="panel-label">Controls</div>
+      <div class="panel-label">操作說明</div>
       <div class="kbd-hints">
-        <kbd>R</kbd> restart song &amp; score<br>
-        <kbd>Space</kbd> pause / resume<br>
-        <kbd>M</kbd> mute / unmute<br>
-        <kbd>+</kbd> / <kbd>−</kbd> sensitivity<br>
-        <kbd>L</kbd> toggle light mode
+        <kbd>R</kbd> 重新開始歌曲與分數<br>
+        <kbd>Space</kbd> 暫停 / 繼續<br>
+        <kbd>M</kbd> 靜音 / 取消靜音<br>
+        <kbd>+</kbd> / <kbd>−</kbd> 調整靈敏度<br>
+        <kbd>L</kbd> 切換亮色模式
       </div>
     </div>
 
     <div class="panel">
-      <div class="panel-label">File</div>
+      <div class="panel-label">檔案</div>
       <div class="file-name" id="fileName">—</div>
       <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
     </div>
 
     <div class="panel">
-      <div class="panel-label">Score</div>
+      <div class="panel-label">分數</div>
       <div class="score-big" id="scoreVal">0</div>
       <div class="score-row">
         <div class="score-item">
-          <label>Streak</label>
+          <label>連擊</label>
           <div class="val" id="streakVal">0</div>
         </div>
         <div class="score-item">
@@ -82,20 +82,20 @@
         </div>
       </div>
       <div class="score-chips">
-        <span class="chip chip-b1"  title="Beat 1 hits (+1)">♩ <span id="b1HitsVal">0</span></span>
-        <span class="chip chip-bon" title="Other beat hits (+1)">✦ <span id="bonusVal">0</span></span>
+        <span class="chip chip-b1"  title="第一拍命中次數 (+5)">♩ <span id="b1HitsVal">0</span></span>
+        <span class="chip chip-bon" title="其他拍命中次數 (+1)">✦ <span id="bonusVal">0</span></span>
       </div>
     </div>
 
     <div class="panel">
-      <div class="panel-label">Time Signature</div>
+      <div class="panel-label">拍號</div>
       <div class="ts-label" id="tsLabel">4 / 4</div>
     </div>
 
     <div class="panel">
-      <div class="panel-label">Playback Speed</div>
+      <div class="panel-label">播放速度</div>
       <div class="sens-row">
-        <label>Slow ← → Fast</label>
+        <label>慢 ← → 快</label>
         <input type="range" id="speedSlider" min="50" max="150" value="100"
                oninput="onSpeedChange(this.value)">
         <span class="sens-val" id="speedVal">1.00×</span>
@@ -106,9 +106,9 @@
     </div>
 
     <div class="panel">
-      <div class="panel-label">Sensitivity</div>
+      <div class="panel-label">靈敏度</div>
       <div class="sens-row">
-        <label>Low ← → High</label>
+        <label>低 ← → 高</label>
         <input type="range" id="sensSlider" min="1" max="10" value="5"
                oninput="onSensChange(this.value)">
         <span class="sens-val" id="sensVal">5</span>

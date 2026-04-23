@@ -496,7 +496,7 @@ document.getElementById('fileInput').addEventListener('change',async(e)=>{
       try{ startCamera(); }
       catch(camErr){
         console.error('Camera/MediaPipe failed:',camErr);
-        alert('Camera could not start: '+camErr.message+'\n\nAudio will still play. Check the browser console for details.');
+        alert('相機無法啟動：'+camErr.message+'\n\n音樂仍會繼續播放。請開啟瀏覽器主控台查看詳細資訊。');
       }
     }
 
@@ -510,7 +510,7 @@ document.getElementById('fileInput').addEventListener('change',async(e)=>{
 
   }catch(err){
     console.error('Error loading MIDI file:',err);
-    alert('Failed to load MIDI: '+err.message+'\n\nSee browser console (F12) for details.');
+    alert('MIDI 載入失敗：'+err.message+'\n\n請按 F12 開啟瀏覽器主控台查看詳細資訊。');
     document.getElementById('fileName').textContent=file.name+' — load error';
   }
 });
@@ -773,7 +773,7 @@ function startCamera(){
       const r=judge.lastResult;
       if(r!=='ignored'){
         const CM={hit1:'80,216,154',bonus:'80,160,255'};
-        const TM={hit1:'✓ BEAT 1',  bonus:'✦ BONUS'};
+        const TM={hit1:'✓ 第一拍',  bonus:'✦ 加分拍'};
         const DM={hit1:'+1',        bonus:'+1'};
         const c=CM[r]||'180,180,180';
         const floatY=H/2-14-age*0.045;
@@ -798,7 +798,7 @@ function startCamera(){
     },
     width:640,height:480
   });
-  camera.start().catch(()=>alert('Camera permission is required. Please allow and reload.'));
+  camera.start().catch(()=>alert('需要相機權限。請允許存取後重新整理頁面。'));
 }
 
 
