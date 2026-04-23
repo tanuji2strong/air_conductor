@@ -143,7 +143,7 @@ class BeatJudge {
     if(best&&bestDiff<=this.windowMs){
       best.judged=true;
       if(best.beatNum===1){
-        this.score+=1;this.streak++;this.b1Hits++;
+        this.score+=5;this.streak++;this.b1Hits++;
         return this._set('hit1',now);
       } else {
         this.score+=1;this.streak++;this.bonusHits++;
@@ -716,10 +716,11 @@ function startCamera(){
       const mirX=l=>(1-l.x)*W, mirY=l=>l.y*H;
 
       // Right arm: shoulder → elbow → wrist
-      const sh=lm[12],el=lm[14],wr=lm[16];
+      const sh=lm[12],el=lm[14],wr=lm[16],idx=lm[20];
       const sx=mirX(sh),sy=mirY(sh);
       const ex=mirX(el),ey=mirY(el);
       const wx=mirX(wr),wy=mirY(wr);
+      const ix=mirX(idx),iy=mirY(idx);
 
       // Skeleton
       ctx.strokeStyle='rgba(200,200,200,0.45)';ctx.lineWidth=2;
@@ -728,7 +729,7 @@ function startCamera(){
       });
 
       // Trail (wrist)
-      trail.push([wx,wy]);if(trail.length>18)trail.shift();
+      trail.push([ix,iy]);if(trail.length>18)trail.shift();
       for(let i=1;i<trail.length;i++){
         const a=i/trail.length;
         ctx.strokeStyle=`rgba(176,184,196,${a*0.7})`;
@@ -738,7 +739,7 @@ function startCamera(){
 
       // Wrist dot
       ctx.fillStyle='#b0b8c4';ctx.shadowColor='#b0b8c4';ctx.shadowBlur=12;
-      ctx.beginPath();ctx.arc(wx,wy,6,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+      ctx.beginPath();ctx.arc(ix,iy,6,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
 
       // Speed bar
       {
@@ -746,7 +747,7 @@ function startCamera(){
         const highThr=0.003-(sens-1)*0.00026;
         const speed=smoothedSpeed();
         const BAR_W=60,BAR_H=5;
-        const bx=wx-BAR_W/2,by=wy-22;
+        const bx=ix-BAR_W/2,by=iy-22;
         ctx.beginPath();ctx.roundRect(bx,by,BAR_W,BAR_H,3);
         ctx.fillStyle='rgba(255,255,255,0.1)';ctx.fill();
         const fill=Math.min(speed/highThr,1)*BAR_W;
@@ -757,7 +758,7 @@ function startCamera(){
       }
 
       // Beat detection
-      if(lm[16].visibility>0.3) onWrist(lm[16].x,lm[16].y);
+      if(lm[20].visibility>0.3) onWrist(lm[20].x,lm[20].y);
     } else {
       trail=[];
     }
