@@ -11,6 +11,23 @@
   --green:        #50d89a;
   --blue:         #5090e0;
   --cam-bg:       #000;
+  /* ─── Font Scale ─── */
+  --fs-label:  0.6rem;
+  --fs-body:   0.8rem;
+  --fs-val:    0.85rem;
+  --fs-score:  3rem;
+}
+html[data-fontsize="medium"] {
+  --fs-label:  calc(0.6rem * 1.2);
+  --fs-body:   calc(0.8rem * 1.2);
+  --fs-val:    calc(0.85rem * 1.2);
+  --fs-score:  calc(3rem * 1.2);
+}
+html[data-fontsize="large"] {
+  --fs-label:  calc(0.6rem * 1.5);
+  --fs-body:   calc(0.8rem * 1.5);
+  --fs-val:    calc(0.85rem * 1.5);
+  --fs-score:  calc(3rem * 1.5);
 }
 [data-theme="light"] {
   --bg:           #f4f1eb;
@@ -149,13 +166,13 @@ header h1 {
   transition: border-color 0.25s;
 }
 .panel-label {
-  font-size: 0.55rem; letter-spacing: 0.22em;
+  font-size: var(--fs-label); letter-spacing: 0.22em;
   text-transform: uppercase; color: var(--text-dim); margin-bottom: 12px;
 }
 
 /* File */
 .file-name {
-  font-size: 0.78rem; color: var(--text);
+  font-size: var(--fs-body); color: var(--text);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .progress-bar {
@@ -166,7 +183,7 @@ header h1 {
 
 /* Score */
 .score-big {
-  font-size: 3rem; font-weight: 300; color: var(--silver);
+  font-size: var(--fs-score); font-weight: 300; color: var(--silver);
   font-variant-numeric: tabular-nums; letter-spacing: -0.02em; line-height: 1;
 }
 .score-row { display: flex; gap: 12px; margin-top: 10px; }
@@ -175,12 +192,12 @@ header h1 {
   text-transform: uppercase; color: var(--text-dim); margin-bottom: 2px;
 }
 .score-item .val {
-  font-size: 1rem; font-weight: 300; color: var(--text); font-variant-numeric: tabular-nums;
+  font-size: var(--fs-val); font-weight: 300; color: var(--text); font-variant-numeric: tabular-nums;
 }
 .score-chips { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
 .chip {
   display: inline-flex; align-items: center; gap: 4px;
-  padding: 3px 8px; border-radius: 2px; font-size: 0.6rem; letter-spacing: 0.06em;
+  padding: 3px 8px; border-radius: 2px; font-size: var(--fs-label); letter-spacing: 0.06em;
 }
 .chip-b1  { background: rgba(176,184,196,0.1);  color: var(--silver);  border: 1px solid rgba(176,184,196,0.25); }
 .chip-bon { background: rgba(80,216,154,0.08); color: var(--green); border: 1px solid rgba(80,216,154,0.22); }
@@ -198,7 +215,7 @@ header h1 {
 .status-badge.paused::before  { background: var(--red); }
 
 /* Pattern */
-.ts-label { font-size: 0.82rem; color: var(--text); }
+.ts-label { font-size: var(--fs-body); color: var(--text); }
 
 /* Controls — collapsed by default, revealed on hover */
 .panel-collapsible .panel-label { margin-bottom: 0; transition: margin-bottom 0.25s; }
@@ -213,20 +230,36 @@ header h1 {
 .sens-row { display: flex; align-items: center; gap: 8px; }
 .sens-row label { font-size: 0.58rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); }
 input[type=range] { flex: 1; accent-color: var(--silver); height: 2px; cursor: pointer; }
-.sens-val { font-size: 0.72rem; color: var(--silver); min-width: 28px; text-align: right; }
+.sens-val { font-size: var(--fs-val); color: var(--silver); min-width: 28px; text-align: right; }
 
 /* Controls */
-.kbd-hints { font-size: 0.6rem; line-height: 2.3; color: var(--text-dim); }
+.kbd-hints { font-size: var(--fs-label); line-height: 2.3; color: var(--text-dim); }
 kbd { background: var(--border); color: var(--text); padding: 1px 6px; border-radius: 2px; font-family: 'DM Mono', monospace; font-size: 0.6rem; }
 
 /* Speed ticks */
 .speed-ticks {
   display: flex; justify-content: space-between;
   margin-top: 4px; padding: 0 2px;
-  font-size: 0.5rem; color: var(--text-dim); letter-spacing: 0;
+  font-size: var(--fs-label); color: var(--text-dim); letter-spacing: 0;
 }
 
 /* Scrollbar */
 .sidebar::-webkit-scrollbar { width: 3px; }
 .sidebar::-webkit-scrollbar-track { background: transparent; }
 .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ─── Font Size Control ─── */
+.fontsize-btns { display: flex; gap: 4px; }
+.fontsize-btn {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.fontsize-btn:hover { border-color: var(--silver); color: var(--silver); }
+.fontsize-btn.active { background: var(--silver); color: var(--bg); border-color: var(--silver); }

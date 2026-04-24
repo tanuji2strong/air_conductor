@@ -6,6 +6,12 @@
   <title>空氣指揮家</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <script>
+    (function () {
+      var s = localStorage.getItem('airConductor_fontSize') || 'small';
+      document.documentElement.setAttribute('data-fontsize', s);
+    })();
+  </script>
 </head>
 <body>
 
@@ -115,6 +121,15 @@
       </div>
     </div>
 
+    <div class="panel">
+      <div class="panel-label">字體大小</div>
+      <div class="fontsize-btns">
+        <button class="fontsize-btn active" data-size="small"  onclick="setFontSize('small')">小</button>
+        <button class="fontsize-btn"        data-size="medium" onclick="setFontSize('medium')">中</button>
+        <button class="fontsize-btn"        data-size="large"  onclick="setFontSize('large')">大</button>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -122,6 +137,21 @@
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/soundfont-player@0.12.0/dist/soundfont-player.min.js"></script>
 <script src="app.js"></script>
+<script>
+  function setFontSize(size) {
+    document.documentElement.setAttribute('data-fontsize', size);
+    localStorage.setItem('airConductor_fontSize', size);
+    document.querySelectorAll('.fontsize-btn').forEach(function (btn) {
+      btn.classList.toggle('active', btn.dataset.size === size);
+    });
+  }
+  (function () {
+    var s = document.documentElement.getAttribute('data-fontsize') || 'small';
+    document.querySelectorAll('.fontsize-btn').forEach(function (btn) {
+      btn.classList.toggle('active', btn.dataset.size === s);
+    });
+  })();
+</script>
 
 </body>
 </html>
