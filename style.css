@@ -263,3 +263,82 @@ kbd { background: var(--border); color: var(--text); padding: 1px 6px; border-ra
 }
 .fontsize-btn:hover { border-color: var(--silver); color: var(--silver); }
 .fontsize-btn.active { background: var(--silver); color: var(--bg); border-color: var(--silver); }
+
+/* ─── Elder Mode Button ─── */
+.elder-btn {
+  padding: 7px 14px;
+  border: 1px solid var(--text-dim);
+  background: transparent; color: var(--text-dim);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.65rem; letter-spacing: 0.1em;
+  white-space: nowrap; cursor: pointer; transition: all 0.2s;
+}
+.elder-btn:hover { border-color: var(--silver); color: var(--silver); }
+.elder-btn.active { background: var(--silver); color: var(--bg); border-color: var(--silver); }
+
+/* ─── Elder Mode ─────────────────────────── */
+html[data-elder] {
+  --fs-label: 1.05rem;
+  --fs-body:  1.2rem;
+  --fs-val:   1.3rem;
+  --fs-score: 5.5rem;
+}
+
+/* Header */
+html[data-elder] header { padding: 18px 28px; gap: 18px; }
+html[data-elder] .theme-btn { width: 52px; height: 52px; font-size: 1.3rem; }
+html[data-elder] .pause-btn { font-size: 1.5rem; }
+html[data-elder] .elder-btn { font-size: 0.85rem; padding: 10px 20px; }
+html[data-elder] .upload-btn { padding: 12px 24px; font-size: 0.8rem; }
+
+/* Sidebar */
+html[data-elder] .app { grid-template-columns: 1fr 360px; }
+html[data-elder] .sidebar { font-size: var(--fs-body); }
+html[data-elder] .panel { padding: 20px 22px; }
+html[data-elder] .panel-label { margin-bottom: 14px; font-size: var(--fs-label); }
+
+/* Hide redundant panels in elder mode */
+html[data-elder] .panel-ts,
+html[data-elder] .panel-fontsize { display: none; }
+
+/* Instructions — always fully visible */
+html[data-elder] .panel-collapsible .panel-label { margin-bottom: 14px; }
+html[data-elder] .panel-collapsible .kbd-hints { max-height: none; opacity: 1; font-size: var(--fs-body); line-height: 2.8; }
+
+/* Progress bar */
+html[data-elder] .progress-bar { height: 10px; border-radius: 5px; margin-top: 14px; }
+html[data-elder] .progress-fill { border-radius: 5px; }
+
+/* Range slider — larger track and thumb */
+html[data-elder] input[type=range] { height: 8px; }
+html[data-elder] input[type=range]::-webkit-slider-runnable-track {
+  height: 8px; border-radius: 4px; background: var(--border);
+}
+html[data-elder] input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--silver); margin-top: -11px; cursor: pointer;
+}
+html[data-elder] input[type=range]::-moz-range-track {
+  height: 8px; border-radius: 4px; background: var(--border); border: none;
+}
+html[data-elder] input[type=range]::-moz-range-thumb {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--silver); border: none; cursor: pointer;
+}
+
+/* Score */
+html[data-elder] .score-big { line-height: 1.1; }
+html[data-elder] .score-row { gap: 18px; margin-top: 14px; }
+html[data-elder] .chip { padding: 6px 14px; font-size: 1rem; border-radius: 4px; }
+
+/* Beat flash — stronger and longer */
+html[data-elder] .beat-flash { transition: opacity 0.3s ease-out; }
+
+/* Upload overlay */
+html[data-elder] .upload-overlay h2 { font-size: 2.6rem; }
+html[data-elder] .upload-overlay p  { font-size: 1rem; line-height: 2.5; }
+html[data-elder] .upload-overlay .upload-btn { font-size: 0.9rem; padding: 16px 40px; }
+
+/* Countdown */
+html[data-elder] .countdown-num { font-size: 14rem; }

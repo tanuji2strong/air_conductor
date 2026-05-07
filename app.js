@@ -202,6 +202,22 @@ function toggleTheme(){
   document.getElementById('themeBtn').textContent=light?'☀':'☾';
 }
 function isLight(){return document.documentElement.dataset.theme==='light';}
+function isElderMode(){return document.documentElement.hasAttribute('data-elder');}
+
+function toggleElderMode(){
+  const html=document.documentElement;
+  const active=html.hasAttribute('data-elder');
+  if(active){
+    html.removeAttribute('data-elder');
+    localStorage.removeItem('airConductor_elder');
+  }else{
+    html.setAttribute('data-elder','');
+    localStorage.setItem('airConductor_elder','1');
+  }
+  const btn=document.getElementById('elderBtn');
+  if(btn)btn.classList.toggle('active',!active);
+  _hudDirty=true;
+}
 
 
 
@@ -455,9 +471,10 @@ function updateScoreUI(){
 
 function flashOverlay(r,g,b){
   const el=document.getElementById('beatFlash');
-  el.style.background=`rgba(${r},${g},${b},0.2)`;
+  const elder=isElderMode();
+  el.style.background=`rgba(${r},${g},${b},${elder?0.45:0.2})`;
   el.style.opacity='1';
-  setTimeout(()=>el.style.opacity='0',110);
+  setTimeout(()=>el.style.opacity='0',elder?300:110);
 }
 
 
@@ -477,19 +494,21 @@ function drawMetronomeHUD() {
   ctx.clearRect(0, 0, W, H);
 
   const light = isLight();
+  const elder = isElderMode();
   const gold  = light ? '#6a7480' : '#b0b8c4';
 
-  const HUD_W = 220, HUD_H = 100;
+  const HUD_W = elder ? 300 : 220;
+  const HUD_H = elder ? 130 : 100;
   const bx = (W - HUD_W) / 2, by = 8;
 
   ctx.save();
 
   // Backdrop
   ctx.fillStyle = light ? 'rgba(244,241,235,0.92)' : 'rgba(7,7,15,0.86)';
-  ctx.beginPath(); ctx.roundRect(bx, by, HUD_W, HUD_H, 12); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(bx, by, HUD_W, HUD_H, 14); ctx.fill();
   ctx.strokeStyle = light ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.07)';
   ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.roundRect(bx, by, HUD_W, HUD_H, 12); ctx.stroke();
+  ctx.beginPath(); ctx.roundRect(bx, by, HUD_W, HUD_H, 14); ctx.stroke();
 
   const isIdle = !scheduler;
   const isB1   = _nextBeatNum === 1;
@@ -507,22 +526,22 @@ function drawMetronomeHUD() {
 
   // Beat number (centered in backdrop)
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.font = 'bold 38px DM Mono, monospace';
+  ctx.font = `bold ${elder ? 62 : 38}px DM Mono, monospace`;
   if (!isIdle && isB1) {
-    ctx.fillStyle  = gold;
+    ctx.fillStyle   = gold;
     ctx.shadowColor = gold;
-    ctx.shadowBlur  = urgency > 0 ? 6 + urgency * 14 : 6;
+    ctx.shadowBlur  = urgency > 0 ? (elder ? 10 : 6) + urgency * (elder ? 20 : 14) : (elder ? 10 : 6);
   } else {
     ctx.fillStyle  = light ? 'rgba(80,76,68,0.55)' : 'rgba(200,200,200,0.45)';
     ctx.shadowBlur = 0;
   }
-  ctx.fillText(isIdle ? '—' : String(_nextBeatNum), W / 2, by + HUD_H / 2 + 5);
+  ctx.fillText(isIdle ? '—' : String(_nextBeatNum), W / 2, by + HUD_H / 2 + (elder ? 8 : 5));
   ctx.shadowBlur = 0;
 
   // BPM label — upper-right of backdrop
   const speedFactor = Number(elSpeedSlider.value) / 100;
   ctx.textAlign = 'right'; ctx.textBaseline = 'top';
-  ctx.font = '10px DM Mono, monospace';
+  ctx.font = `${elder ? 13 : 10}px DM Mono, monospace`;
   ctx.fillStyle = light ? 'rgba(100,90,70,0.55)' : 'rgba(180,180,180,0.5)';
   ctx.fillText(isIdle ? '— BPM' : (bpm0 * speedFactor).toFixed(0) + ' BPM', bx + HUD_W - 10, by + 10);
 
@@ -571,6 +590,7 @@ function startCamera(){
 
     if(results.poseLandmarks){
       const speed=smoothedSpeed();
+      const elder=isElderMode();
       const lm=results.poseLandmarks;
       const mirX=l=>(1-l.x)*W, mirY=l=>l.y*H;
 
@@ -597,8 +617,8 @@ function startCamera(){
       }
 
       // Wrist dot
-      ctx.fillStyle='#b0b8c4';ctx.shadowColor='#b0b8c4';ctx.shadowBlur=12;
-      ctx.beginPath();ctx.arc(ix,iy,6,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+      ctx.fillStyle='#b0b8c4';ctx.shadowColor='#b0b8c4';ctx.shadowBlur=elder?20:12;
+      ctx.beginPath();ctx.arc(ix,iy,elder?11:6,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
 
       // Speed bar
       {
@@ -629,17 +649,18 @@ function startCamera(){
       if(age<800){
         const r=judge.lastResult;
         if(r!=='ignored'){
+          const elder2=isElderMode();
           const alpha=Math.max(0,1-age/800);
           const c=_SCORE_COLOR[r]||'180,180,180';
           const floatY=H/2-14-age*0.045;
           ctx.save();ctx.textAlign='center';
-          ctx.font='bold 25px DM Mono, monospace';
+          ctx.font=`bold ${elder2?38:25}px DM Mono, monospace`;
           ctx.fillStyle=`rgba(${c},${alpha})`;
-          ctx.shadowColor=`rgba(${c},${alpha*0.5})`;ctx.shadowBlur=16;
+          ctx.shadowColor=`rgba(${c},${alpha*0.5})`;ctx.shadowBlur=elder2?22:16;
           ctx.fillText(_SCORE_TEXT[r],W/2,floatY);
-          ctx.font='15px DM Mono, monospace';ctx.shadowBlur=0;
+          ctx.font=`${elder2?22:15}px DM Mono, monospace`;ctx.shadowBlur=0;
           ctx.fillStyle=`rgba(${c},${alpha*0.85})`;
-          ctx.fillText(_SCORE_DELTA[r],W/2,floatY+25);
+          ctx.fillText(_SCORE_DELTA[r],W/2,floatY+(elder2?36:25));
           ctx.restore();
         }
       }

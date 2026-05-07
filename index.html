@@ -10,6 +10,9 @@
     (function () {
       var s = localStorage.getItem('airConductor_fontSize') || 'small';
       document.documentElement.setAttribute('data-fontsize', s);
+      if (localStorage.getItem('airConductor_elder')) {
+        document.documentElement.setAttribute('data-elder', '');
+      }
     })();
   </script>
 </head>
@@ -21,6 +24,7 @@
   <div class="header-right">
     <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="切換亮色／暗色模式">☀</button>
     <button class="theme-btn pause-btn" id="pauseBtn" onclick="togglePause()" title="暫停" disabled>⏸</button>
+    <button class="elder-btn" id="elderBtn" onclick="toggleElderMode()" title="切換長者模式">長者模式</button>
     <button class="upload-btn" onclick="document.getElementById('fileInput').click()">載入 MIDI</button>
     <input type="file" id="fileInput" accept=".mid,.midi">
   </div>
@@ -93,7 +97,7 @@
       </div>
     </div>
 
-    <div class="panel">
+    <div class="panel panel-ts">
       <div class="panel-label">拍號</div>
       <div class="ts-label" id="tsLabel">4 / 4</div>
     </div>
@@ -121,7 +125,7 @@
       </div>
     </div>
 
-    <div class="panel">
+    <div class="panel panel-fontsize">
       <div class="panel-label">字體大小</div>
       <div class="fontsize-btns">
         <button class="fontsize-btn active" data-size="small"  onclick="setFontSize('small')">小</button>
@@ -150,6 +154,10 @@
     document.querySelectorAll('.fontsize-btn').forEach(function (btn) {
       btn.classList.toggle('active', btn.dataset.size === s);
     });
+    if (document.documentElement.hasAttribute('data-elder')) {
+      var eb = document.getElementById('elderBtn');
+      if (eb) eb.classList.add('active');
+    }
   })();
 </script>
 
