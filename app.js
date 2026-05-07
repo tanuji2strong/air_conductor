@@ -83,18 +83,19 @@ class AutoScheduler {
     this.beatS=(60/this.bpm)/factor;
   }
   reset(){this.playing=false;this.currentTick=0;this.eventIndex=0;this._beatNum=1;this._stopAll();}
-  _stopAll(){for(const n of this._nodes)try{n.stop();}catch{}this._nodes=[];}
+  _stopAll(){for(const n of this._nodes)try{n.node.stop();}catch{}this._nodes=[];}
   _midiName(n){return['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'][n%12]+(Math.floor(n/12)-1);}
   _play(ev,when){
     if(this.muted||ev.channel===9||!this.inst)return;
     if(ev.type==='note_on'&&ev.velocity>0){
       const nd=this.inst.play(this._midiName(ev.note),when,{duration:1.5,gain:(ev.velocity/127)*0.9});
-      if(nd)this._nodes.push(nd);
+      if(nd)this._nodes.push({node:nd,endTime:when+1.65});
     }
   }
   update(){
     if(!this.playing)return;
     const now=this.ac.currentTime;
+    this._nodes=this._nodes.filter(n=>n.endTime>now);
     while(this.nextBeatAudioTime<now+this._AHEAD){
       this._scheduleBeat(this.nextBeatAudioTime);
       const msAhead=(this.nextBeatAudioTime-now)*1000;
@@ -140,17 +141,18 @@ class BeatJudge {
       const diff=Math.abs(now-b.perfTime);
       if(diff<bestDiff){bestDiff=diff;best=b;}
     }
+    let result='ignored';
     if(best&&bestDiff<=this.windowMs){
       best.judged=true;
       if(best.beatNum===1){
-        this.score+=5;this.streak++;this.b1Hits++;
-        return this._set('hit1',now);
+        this.score+=5;this.streak++;this.b1Hits++;result='hit1';
       } else {
-        this.score+=1;this.streak++;this.bonusHits++;
-        return this._set('bonus',now);
+        this.score+=1;this.streak++;this.bonusHits++;result='bonus';
       }
     }
-    return this._set('ignored',now);
+    const cutoff=now-this.windowMs*2;
+    this.pending=this.pending.filter(b=>b.perfTime>cutoff);
+    return this._set(result,now);
   }
 
   _set(r,t){this.lastResult=r;this.lastResultTime=t;return r;}
@@ -169,9 +171,9 @@ let analyzer=null,scheduler=null,judge=null,audioCtx=null,instrument=null;
 let currentTS=[4,4],bpm0=120;
 let trail=[],cameraStarted=false;
 let _prevBeatMs=0,_nextBeatMs=0,_currentBeatNum=1,_nextBeatNum=1;
-let _shmPhaseOriginMs=0,_shmBeatIntervalMs=500;
 let isPaused=false;
 let cachedSens=5,_hudDirty=true;
+let cachedHighThr=0.003*Math.pow(0.22,(5-1)/4);
 
 // Beat detection state (ported from metronome.html)
 const POS_BUF_SIZE = 8;
@@ -182,6 +184,12 @@ let wasAboveHigh = false;
 let wasAboveHighTimestamp = 0;
 let peakSpeed = 0;
 let lastBeatMs = 0;
+
+// Cached DOM references — queried once, reused in rAF loops
+const elProgressFill=document.getElementById('progressFill');
+const elHudCanvas   =document.getElementById('hudCanvas');
+const elCamCanvas   =document.getElementById('canvasEl');
+const elSpeedSlider =document.getElementById('speedSlider');
 
 
 // ═══════════════════════════════════════════
@@ -197,95 +205,13 @@ function isLight(){return document.documentElement.dataset.theme==='light';}
 
 
 
-// ═══════════════════════════════════════════
-//  METRONOME CANVAS
-// ═══════════════════════════════════════════
-function drawMetronome(expectedBeat,playing){
-  const mc=document.getElementById('metroCanvas');
-  const mctx=mc.getContext('2d');
-  const W=mc.width,H=mc.height;
-  mctx.clearRect(0,0,W,H);
-
-  const light=isLight();
-  const gold =light?'#6a7480':'#b0b8c4';
-  const dim  =light?'#dedad0':'#252530';
-  const red  =light?'#c73c3c':'#e05252';
-
-  // Beat progress 0→1
-  const now=performance.now();
-  const total=_nextBeatMs-_prevBeatMs;
-  const elapsed=now-_prevBeatMs;
-  const progress=(playing&&total>50&&_prevBeatMs>0)
-    ?Math.min(1,Math.max(0,elapsed/total)):0;
-
-  const cx=W/2, cy=38, R=26;
-
-  // Track ring
-  mctx.beginPath();
-  mctx.arc(cx,cy,R,0,Math.PI*2);
-  mctx.strokeStyle=dim; mctx.lineWidth=5; mctx.stroke();
-
-  // Progress arc — colour shifts gold→red as beat approaches
-  if(playing){
-    const u=progress;
-    const cr=Math.round((light?106:176)+(u*((light?199:224)-(light?106:176))));
-    const cg=Math.round((light?116:184)+(u*((light?60:82) -(light?116:184))));
-    const cb=Math.round((light?128:196)+(u*((light?60:82) -(light?128:196))));
-    mctx.beginPath();
-    mctx.arc(cx,cy,R,-Math.PI/2,-Math.PI/2+u*Math.PI*2);
-    mctx.strokeStyle=`rgb(${cr},${cg},${cb})`;
-    mctx.lineWidth=5; mctx.lineCap='round'; mctx.stroke();
-  }
-
-  // Centre beat number
-  mctx.textAlign='center'; mctx.textBaseline='middle';
-  mctx.font=`300 ${playing?'20':'16'}px Cormorant Garamond, serif`;
-  mctx.fillStyle=playing?gold:(light?'#c0bbb0':'#2a2a38');
-  mctx.fillText(playing?String(expectedBeat):'—',cx,cy);
-
-  // Position dots + pendulum tick marks
-  const n=currentTS[0];
-  const spacing=13;
-  const startX=cx-((n-1)*spacing)/2;
-  const dotY=cy+R+14;
-
-  for(let i=1;i<=n;i++){
-    const dx2=startX+(i-1)*spacing;
-    const isActive=i===expectedBeat&&playing;
-    const isB1=i===1;
-
-    // Outer ring for beat-1
-    if(isB1){
-      mctx.beginPath();mctx.arc(dx2,dotY,5.5,0,Math.PI*2);
-      mctx.strokeStyle=isActive?gold:(light?'#c5bfb0':'#363640');
-      mctx.lineWidth=1;mctx.stroke();
-    }
-
-    mctx.beginPath();mctx.arc(dx2,dotY,3.5,0,Math.PI*2);
-    if(isActive){
-      mctx.fillStyle=gold;
-      mctx.shadowColor=gold;mctx.shadowBlur=8;
-    } else {
-      mctx.fillStyle=dim;mctx.shadowBlur=0;
-    }
-    mctx.fill();mctx.shadowBlur=0;
-  }
-
-  // BPM label
-  if(bpm0>0){
-    mctx.textAlign='right'; mctx.textBaseline='bottom';
-    mctx.font=`9px DM Mono, monospace`;
-    mctx.fillStyle=light?'#c0bbb0':'#2a2a38';
-    mctx.fillText(bpm0.toFixed(0)+' bpm',W-4,H-2);
-  }
-}
-
 
 // ═══════════════════════════════════════════
 //  SENSITIVITY
 // ═══════════════════════════════════════════
 function onSensChange(val){
   cachedSens=Number(val);
+  cachedHighThr=0.003*Math.pow(0.22,(cachedSens-1)/4);
   document.getElementById('sensVal').textContent=Number(val);
 }
 
@@ -294,28 +220,29 @@ function onSensChange(val){
 //  BEAT DETECTION (ported from metronome.html)
 // ═══════════════════════════════════════════
 function smoothedSpeed() {
-  const buf = poseBuf.slice(-VELO_WINDOW);
-  if (buf.length < 2) return 0;
-  let sum = 0, n = 0;
-  for (let i = 1; i < buf.length; i++) {
-    const dt = buf[i].t - buf[i - 1].t;
-    if (dt > 0) {
-      const dx = buf[i].x - buf[i - 1].x;
-      const dy = buf[i].y - buf[i - 1].y;
-      sum += Math.sqrt(dx * dx + dy * dy) / dt;
+  const len=poseBuf.length;
+  if(len<2)return 0;
+  const start=Math.max(0,len-VELO_WINDOW);
+  let sum=0,n=0;
+  for(let i=start+1;i<len;i++){
+    const dt=poseBuf[i].t-poseBuf[i-1].t;
+    if(dt>0){
+      const dx=poseBuf[i].x-poseBuf[i-1].x;
+      const dy=poseBuf[i].y-poseBuf[i-1].y;
+      sum+=Math.sqrt(dx*dx+dy*dy)/dt;
       n++;
     }
   }
-  return n ? sum / n : 0;
+  return n?sum/n:0;
 }
 
-function onWrist(x, y, speed) {
-  const t = performance.now();
+function onWrist(x, y, speed, frameT) {
+  const t = frameT;
   poseBuf.push({ x, y, t });
   if (poseBuf.length > POS_BUF_SIZE) poseBuf.shift();
   if (poseBuf.length < VELO_WINDOW) return;
 
-  const highThr = 0.003 * Math.pow(0.22, (cachedSens - 1) / 4);
+  const highThr = cachedHighThr;
 
   if (speed > highThr) {
     if (!wasAboveHigh) {
@@ -386,7 +313,7 @@ function schedulerLoop(){
   if(scheduler){
     scheduler.update();
     if(scheduler.a){
-      document.getElementById('progressFill').style.width=(scheduler.progress*100)+'%';
+      elProgressFill.style.width=(scheduler.progress*100)+'%';
     }
   }
   requestAnimationFrame(schedulerLoop);
@@ -466,14 +393,11 @@ document.getElementById('fileInput').addEventListener('change',async(e)=>{
 
     judge=new BeatJudge(bpm0);
     _prevBeatMs=0;_nextBeatMs=0;_currentBeatNum=1;_nextBeatNum=1;
-    _shmPhaseOriginMs=0;_shmBeatIntervalMs=500;
     poseBuf=[];wasAboveHigh=false;wasAboveHighTimestamp=0;peakSpeed=0;lastBeatMs=0;
 
     scheduler=new AutoScheduler(analyzer,audioCtx,instrument,(beatPerfMs,beatNum)=>{
       judge.addBeat(beatPerfMs,beatNum);
       _hudDirty=true;
-      if (_nextBeatMs > 0) _shmBeatIntervalMs = beatPerfMs - _nextBeatMs;
-      if (beatNum === 1) _shmPhaseOriginMs = beatPerfMs;
       _prevBeatMs=_nextBeatMs;
       _currentBeatNum=_nextBeatNum;
       _nextBeatMs=beatPerfMs;
@@ -541,8 +465,8 @@ function flashOverlay(r,g,b){
 //  METRONOME HUD  (dedicated overlay canvas)
 // ═══════════════════════════════════════════
 function drawMetronomeHUD() {
-  const hudCanvas = document.getElementById('hudCanvas');
-  const camCanvas = document.getElementById('canvasEl');
+  const hudCanvas = elHudCanvas;
+  const camCanvas = elCamCanvas;
 
   const W = camCanvas.width  || camCanvas.clientWidth  || 640;
   const H = camCanvas.height || camCanvas.clientHeight || 480;
@@ -596,7 +520,7 @@ function drawMetronomeHUD() {
   ctx.shadowBlur = 0;
 
   // BPM label — upper-right of backdrop
-  const speedFactor = Number(document.getElementById('speedSlider').value) / 100;
+  const speedFactor = Number(elSpeedSlider.value) / 100;
   ctx.textAlign = 'right'; ctx.textBaseline = 'top';
   ctx.font = '10px DM Mono, monospace';
   ctx.fillStyle = light ? 'rgba(100,90,70,0.55)' : 'rgba(180,180,180,0.5)';
@@ -617,12 +541,16 @@ requestAnimationFrame(hudLoop);
 //  MEDIAPIPE CAMERA
 // ═══════════════════════════════════════════
 const TRAIL_STYLES=Array.from({length:18},(_,i)=>`rgba(176,184,196,${((i+1)/18)*0.7})`);
+const _SCORE_COLOR={hit1:'80,216,154',bonus:'80,160,255'};
+const _SCORE_TEXT ={hit1:'✓ 第一拍',  bonus:'✦ 加分拍'};
+const _SCORE_DELTA={hit1:'+1',        bonus:'+1'};
 
 function startCamera(){
   cameraStarted=true;
   const video=document.getElementById('videoEl');
-  const canvas=document.getElementById('canvasEl');
+  const canvas=elCamCanvas;
   const ctx=canvas.getContext('2d');
+  let frameTimestamp=0;
 
   const pose=new Pose({
     locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}`
@@ -640,13 +568,6 @@ function startCamera(){
     ctx.save();ctx.translate(W,0);ctx.scale(-1,1);
     ctx.drawImage(results.image,0,0,W,H);
     ctx.restore();
-
-    // Beat progress for this frame
-    const now=performance.now();
-    const _total=_nextBeatMs-_prevBeatMs;
-    const _elapsed=now-_prevBeatMs;
-    const beatProgress=(scheduler?.playing&&_total>50&&_prevBeatMs>0)
-      ?Math.min(1,Math.max(0,_elapsed/_total)):0;
 
     if(results.poseLandmarks){
       const speed=smoothedSpeed();
@@ -681,7 +602,7 @@ function startCamera(){
 
       // Speed bar
       {
-        const highThr=0.003-(cachedSens-1)*0.00026;
+        const highThr=cachedHighThr;
         const BAR_W=60,BAR_H=5;
         const bx=ix-BAR_W/2,by=iy-22;
         ctx.beginPath();ctx.roundRect(bx,by,BAR_W,BAR_H,3);
@@ -694,7 +615,7 @@ function startCamera(){
       }
 
       // Beat detection
-      if(lm[20].visibility>0.3) onWrist(lm[20].x,lm[20].y,speed);
+      if(lm[20].visibility>0.3) onWrist(lm[20].x,lm[20].y,speed,frameTimestamp);
     } else {
       trail=[];
     }
@@ -703,33 +624,34 @@ function startCamera(){
     // (scheduler.update handled by the independent rAF loop above)
 
     // Floating score HUD
-    if(judge?.lastResult&&performance.now()-judge.lastResultTime<800){
+    if(judge?.lastResult){
       const age=performance.now()-judge.lastResultTime;
-      const alpha=Math.max(0,1-age/800);
-      const r=judge.lastResult;
-      if(r!=='ignored'){
-        const CM={hit1:'80,216,154',bonus:'80,160,255'};
-        const TM={hit1:'✓ 第一拍',  bonus:'✦ 加分拍'};
-        const DM={hit1:'+1',        bonus:'+1'};
-        const c=CM[r]||'180,180,180';
-        const floatY=H/2-14-age*0.045;
-        ctx.save();ctx.textAlign='center';
-        ctx.font='bold 25px DM Mono, monospace';
-        ctx.fillStyle=`rgba(${c},${alpha})`;
-        ctx.shadowColor=`rgba(${c},${alpha*0.5})`;ctx.shadowBlur=16;
-        ctx.fillText(TM[r],W/2,floatY);
-        ctx.font='15px DM Mono, monospace';ctx.shadowBlur=0;
-        ctx.fillStyle=`rgba(${c},${alpha*0.85})`;
-        ctx.fillText(DM[r],W/2,floatY+25);
-        ctx.restore();
+      if(age<800){
+        const r=judge.lastResult;
+        if(r!=='ignored'){
+          const alpha=Math.max(0,1-age/800);
+          const c=_SCORE_COLOR[r]||'180,180,180';
+          const floatY=H/2-14-age*0.045;
+          ctx.save();ctx.textAlign='center';
+          ctx.font='bold 25px DM Mono, monospace';
+          ctx.fillStyle=`rgba(${c},${alpha})`;
+          ctx.shadowColor=`rgba(${c},${alpha*0.5})`;ctx.shadowBlur=16;
+          ctx.fillText(_SCORE_TEXT[r],W/2,floatY);
+          ctx.font='15px DM Mono, monospace';ctx.shadowBlur=0;
+          ctx.fillStyle=`rgba(${c},${alpha*0.85})`;
+          ctx.fillText(_SCORE_DELTA[r],W/2,floatY+25);
+          ctx.restore();
+        }
       }
     }
   });
 
   const camera=new Camera(video,{
     onFrame:async()=>{
-      canvas.width =video.videoWidth ||640;
-      canvas.height=video.videoHeight||480;
+      frameTimestamp=performance.now();
+      const w=video.videoWidth||640,h=video.videoHeight||480;
+      if(canvas.width!==w)canvas.width=w;
+      if(canvas.height!==h)canvas.height=h;
       await pose.send({image:video});
     },
     width:640,height:480
@@ -748,7 +670,6 @@ document.addEventListener('keydown',e=>{
     trail=[];
     poseBuf=[];wasAboveHigh=false;wasAboveHighTimestamp=0;peakSpeed=0;lastBeatMs=0;
     _prevBeatMs=0;_nextBeatMs=0;_currentBeatNum=1;_nextBeatNum=1;
-    _shmPhaseOriginMs=0;_shmBeatIntervalMs=500;
     isPaused=false;
     _hudDirty=true;
     const pb=document.getElementById('pauseBtn');
