@@ -171,6 +171,7 @@ let trail=[],cameraStarted=false;
 let _prevBeatMs=0,_nextBeatMs=0,_currentBeatNum=1,_nextBeatNum=1;
 let _shmPhaseOriginMs=0,_shmBeatIntervalMs=500;
 let isPaused=false;
+let cachedSens=5,_hudDirty=true;
 
 // Beat detection state (ported from metronome.html)
 const POS_BUF_SIZE = 8;
@@ -284,6 +285,7 @@ function drawMetronome(expectedBeat,playing){
 //  SENSITIVITY
 // ═══════════════════════════════════════════
 function onSensChange(val){
+  cachedSens=Number(val);
   document.getElementById('sensVal').textContent=Number(val);
 }
 
@@ -307,15 +309,13 @@ function smoothedSpeed() {
   return n ? sum / n : 0;
 }
 
-function onWrist(x, y) {
+function onWrist(x, y, speed) {
   const t = performance.now();
   poseBuf.push({ x, y, t });
   if (poseBuf.length > POS_BUF_SIZE) poseBuf.shift();
   if (poseBuf.length < VELO_WINDOW) return;
 
-  const speed = smoothedSpeed();
-  const sens = parseInt(document.getElementById('sensSlider').value, 10);
-  const highThr = 0.003 * Math.pow(0.22, (sens - 1) / 4);
+  const highThr = 0.003 * Math.pow(0.22, (cachedSens - 1) / 4);
 
   if (speed > highThr) {
     if (!wasAboveHigh) {
@@ -351,6 +351,7 @@ function onWrist(x, y) {
 function togglePause(){
   if(!scheduler)return;
   isPaused=!isPaused;
+  _hudDirty=true;
   const btn=document.getElementById('pauseBtn');
   if(isPaused){
     scheduler.pause();
@@ -470,6 +471,7 @@ document.getElementById('fileInput').addEventListener('change',async(e)=>{
 
     scheduler=new AutoScheduler(analyzer,audioCtx,instrument,(beatPerfMs,beatNum)=>{
       judge.addBeat(beatPerfMs,beatNum);
+      _hudDirty=true;
       if (_nextBeatMs > 0) _shmBeatIntervalMs = beatPerfMs - _nextBeatMs;
       if (beatNum === 1) _shmPhaseOriginMs = beatPerfMs;
       _prevBeatMs=_nextBeatMs;
@@ -542,7 +544,6 @@ function drawMetronomeHUD() {
   const hudCanvas = document.getElementById('hudCanvas');
   const camCanvas = document.getElementById('canvasEl');
 
-  // Match pixel dimensions to camera canvas (or its CSS size when camera not running)
   const W = camCanvas.width  || camCanvas.clientWidth  || 640;
   const H = camCanvas.height || camCanvas.clientHeight || 480;
   if (hudCanvas.width !== W)  hudCanvas.width  = W;
@@ -551,13 +552,8 @@ function drawMetronomeHUD() {
   const ctx = hudCanvas.getContext('2d');
   ctx.clearRect(0, 0, W, H);
 
-  const light   = isLight();
-  const gold    = light ? '#6a7480' : '#b0b8c4';
-  const goldRgb = light ? '106,116,128' : '176,184,196';
-  const blueRgb = '80,144,224';
-
-  const ARM_LEN   = 60;
-  const MAX_ANGLE = Math.PI / 3;
+  const light = isLight();
+  const gold  = light ? '#6a7480' : '#b0b8c4';
 
   const HUD_W = 220, HUD_H = 100;
   const bx = (W - HUD_W) / 2, by = 8;
@@ -571,96 +567,35 @@ function drawMetronomeHUD() {
   ctx.lineWidth = 1;
   ctx.beginPath(); ctx.roundRect(bx, by, HUD_W, HUD_H, 12); ctx.stroke();
 
-  const pivX = W / 2, pivY = by + 18;
-
-  // Faint arc rail between the two extreme swing positions
-  // Canvas arc angle for pendulum angle α from vertical: atan2(cos α, sin α)
-  // Left extreme (−MAX_ANGLE) → canvas angle = PI/2 + MAX_ANGLE
-  // Right extreme (+MAX_ANGLE) → canvas angle = PI/2 − MAX_ANGLE
-  ctx.beginPath();
-  ctx.arc(pivX, pivY, ARM_LEN, Math.PI / 2 - MAX_ANGLE, Math.PI / 2 + MAX_ANGLE);
-  ctx.strokeStyle = light ? 'rgba(100,90,70,0.18)' : 'rgba(200,190,160,0.15)';
-  ctx.lineWidth = 1.5;
-  ctx.setLineDash([3, 5]);
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  // Pendulum position
   const isIdle = !scheduler;
-  let angle = 0;
-  let bp = 0;
+  const isB1   = _nextBeatNum === 1;
+
+  // Urgency glow: beat progress > 70%
+  let urgency = 0;
   if (!isIdle) {
-    const now = performance.now();
-    // bp is still used for the urgency ring below
+    const now      = performance.now();
     const _total   = _nextBeatMs - _prevBeatMs;
     const _elapsed = now - _prevBeatMs;
-    bp = (_total > 50 && _prevBeatMs > 0)
+    const bp = (_total > 50 && _prevBeatMs > 0)
       ? Math.min(1, Math.max(0, _elapsed / _total)) : 0;
-    // Continuous SHM — θ(t) = MAX_ANGLE · cos(ωt), full period = 2 beats
-    const T     = currentTS[0] * _shmBeatIntervalMs;
-    const omega = (2 * Math.PI) / T;
-    angle = MAX_ANGLE * Math.cos(omega * (now - _shmPhaseOriginMs));
+    urgency = Math.max(0, (bp - 0.70) / 0.30);
   }
 
-  const bobX = pivX + Math.sin(angle) * ARM_LEN;
-  const bobY = pivY + Math.cos(angle) * ARM_LEN;
-
-  const isB1       = _nextBeatNum === 1;
-  const bobR       = isB1 ? 9 : 7;
-  const now2       = performance.now();
-  const ictusFresh = !isIdle && (now2 - lastBeatMs) < 150;
-
-  // Ictus cue ring — glows gold/blue as beat window opens (last 30%)
-  if (!isIdle) {
-    const urgency = Math.max(0, (bp - 0.70) / 0.30);
-    if (urgency > 0) {
-      const col   = isB1 ? goldRgb : blueRgb;
-      const ringR = bobR + 5 + urgency * 9;
-      ctx.beginPath(); ctx.arc(bobX, bobY, ringR, 0, Math.PI * 2);
-      ctx.strokeStyle = `rgba(${col},${urgency * 0.85})`;
-      ctx.lineWidth   = 2;
-      ctx.shadowColor = `rgba(${col},${urgency * 0.55})`;
-      ctx.shadowBlur  = urgency * 14;
-      ctx.stroke();
-      ctx.shadowBlur = 0;
-    }
-  }
-
-  // Arm
-  ctx.beginPath(); ctx.moveTo(pivX, pivY); ctx.lineTo(bobX, bobY);
-  ctx.strokeStyle = light ? 'rgba(100,90,70,0.55)' : 'rgba(200,190,160,0.45)';
-  ctx.lineWidth = 1.5; ctx.stroke();
-
-  // Pivot dot
-  ctx.beginPath(); ctx.arc(pivX, pivY, 3, 0, Math.PI * 2);
-  ctx.fillStyle = light ? 'rgba(100,90,70,0.7)' : 'rgba(200,190,160,0.6)';
-  ctx.fill();
-
-  // Bob
-  ctx.beginPath(); ctx.arc(bobX, bobY, bobR, 0, Math.PI * 2);
-  if (ictusFresh) {
-    ctx.fillStyle = '#ffffff'; ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 18;
-  } else if (!isIdle && isB1) {
-    ctx.fillStyle = gold; ctx.shadowColor = gold; ctx.shadowBlur = 8;
-  } else {
-    ctx.fillStyle = light ? 'rgba(100,90,70,0.55)' : 'rgba(200,200,200,0.45)';
-    ctx.shadowBlur = 0;
-  }
-  ctx.fill(); ctx.shadowBlur = 0;
-
-  // Beat number below bob (dash when idle)
-  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.font = 'bold 22px DM Mono, monospace';
+  // Beat number (centered in backdrop)
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = 'bold 38px DM Mono, monospace';
   if (!isIdle && isB1) {
-    ctx.fillStyle = gold; ctx.shadowColor = gold; ctx.shadowBlur = 6;
+    ctx.fillStyle  = gold;
+    ctx.shadowColor = gold;
+    ctx.shadowBlur  = urgency > 0 ? 6 + urgency * 14 : 6;
   } else {
-    ctx.fillStyle = light ? 'rgba(80,76,68,0.55)' : 'rgba(200,200,200,0.45)';
+    ctx.fillStyle  = light ? 'rgba(80,76,68,0.55)' : 'rgba(200,200,200,0.45)';
     ctx.shadowBlur = 0;
   }
-  ctx.fillText(isIdle ? '—' : String(_nextBeatNum), pivX, pivY + ARM_LEN + 7);
+  ctx.fillText(isIdle ? '—' : String(_nextBeatNum), W / 2, by + HUD_H / 2 + 5);
   ctx.shadowBlur = 0;
 
-  // BPM — upper-right of backdrop
+  // BPM label — upper-right of backdrop
   const speedFactor = Number(document.getElementById('speedSlider').value) / 100;
   ctx.textAlign = 'right'; ctx.textBaseline = 'top';
   ctx.font = '10px DM Mono, monospace';
@@ -672,7 +607,7 @@ function drawMetronomeHUD() {
 
 // Dedicated 60fps loop for the HUD — decoupled from MediaPipe
 function hudLoop() {
-  drawMetronomeHUD();
+  if(_hudDirty){drawMetronomeHUD();_hudDirty=false;}
   requestAnimationFrame(hudLoop);
 }
 requestAnimationFrame(hudLoop);
@@ -681,6 +616,8 @@ requestAnimationFrame(hudLoop);
 // ═══════════════════════════════════════════
 //  MEDIAPIPE CAMERA
 // ═══════════════════════════════════════════
+const TRAIL_STYLES=Array.from({length:18},(_,i)=>`rgba(176,184,196,${((i+1)/18)*0.7})`);
+
 function startCamera(){
   cameraStarted=true;
   const video=document.getElementById('videoEl');
@@ -691,7 +628,7 @@ function startCamera(){
     locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}`
   });
   pose.setOptions({
-    modelComplexity:1,smoothLandmarks:true,
+    modelComplexity:0,smoothLandmarks:true,
     minDetectionConfidence:0.6,minTrackingConfidence:0.6
   });
 
@@ -712,6 +649,7 @@ function startCamera(){
       ?Math.min(1,Math.max(0,_elapsed/_total)):0;
 
     if(results.poseLandmarks){
+      const speed=smoothedSpeed();
       const lm=results.poseLandmarks;
       const mirX=l=>(1-l.x)*W, mirY=l=>l.y*H;
 
@@ -732,7 +670,7 @@ function startCamera(){
       trail.push([ix,iy]);if(trail.length>18)trail.shift();
       for(let i=1;i<trail.length;i++){
         const a=i/trail.length;
-        ctx.strokeStyle=`rgba(176,184,196,${a*0.7})`;
+        ctx.strokeStyle=TRAIL_STYLES[i-1];
         ctx.lineWidth=a*4.5;
         ctx.beginPath();ctx.moveTo(trail[i-1][0],trail[i-1][1]);ctx.lineTo(trail[i][0],trail[i][1]);ctx.stroke();
       }
@@ -743,9 +681,7 @@ function startCamera(){
 
       // Speed bar
       {
-        const sens=parseInt(document.getElementById('sensSlider').value,10);
-        const highThr=0.003-(sens-1)*0.00026;
-        const speed=smoothedSpeed();
+        const highThr=0.003-(cachedSens-1)*0.00026;
         const BAR_W=60,BAR_H=5;
         const bx=ix-BAR_W/2,by=iy-22;
         ctx.beginPath();ctx.roundRect(bx,by,BAR_W,BAR_H,3);
@@ -758,7 +694,7 @@ function startCamera(){
       }
 
       // Beat detection
-      if(lm[20].visibility>0.3) onWrist(lm[20].x,lm[20].y);
+      if(lm[20].visibility>0.3) onWrist(lm[20].x,lm[20].y,speed);
     } else {
       trail=[];
     }
@@ -814,6 +750,7 @@ document.addEventListener('keydown',e=>{
     _prevBeatMs=0;_nextBeatMs=0;_currentBeatNum=1;_nextBeatNum=1;
     _shmPhaseOriginMs=0;_shmBeatIntervalMs=500;
     isPaused=false;
+    _hudDirty=true;
     const pb=document.getElementById('pauseBtn');
     if(pb){pb.textContent='⏸';pb.title='Pause';}
   }else if(e.key===' '){
