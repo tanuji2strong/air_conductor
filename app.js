@@ -543,7 +543,7 @@ requestAnimationFrame(hudLoop);
 const TRAIL_STYLES=Array.from({length:18},(_,i)=>`rgba(176,184,196,${((i+1)/18)*0.7})`);
 const _SCORE_COLOR={hit1:'80,216,154',bonus:'80,160,255'};
 const _SCORE_TEXT ={hit1:'✓ 第一拍',  bonus:'✦ 加分拍'};
-const _SCORE_DELTA={hit1:'+1',        bonus:'+1'};
+const _SCORE_DELTA={hit1:'+5',        bonus:'+1'};
 
 function startCamera(){
   cameraStarted=true;
