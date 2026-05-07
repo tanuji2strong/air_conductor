@@ -43,6 +43,26 @@
       <div class="countdown-sub">準備好跟上節拍！</div>
     </div>
 
+    <div class="start-overlay" id="startOverlay" onclick="onStartOverlayClick()">
+      <div class="start-icon">♩</div>
+      <h2>點擊開始</h2>
+      <p>點擊畫面，開始 10 秒倒數<br>準備好跟上節拍！</p>
+    </div>
+
+    <div class="end-overlay" id="endOverlay">
+      <h2>太棒了！</h2>
+      <div class="end-stat-label">總分</div>
+      <div class="end-score-big" id="endScore">0</div>
+      <div class="end-chips">
+        <span class="chip chip-b1">♩ 第一拍 &nbsp;<span id="endB1">0</span></span>
+        <span class="chip chip-bon">✦ 加分拍 &nbsp;<span id="endBonus">0</span></span>
+      </div>
+      <div class="end-btns">
+        <button class="end-btn end-btn-restart" onclick="restartGame()">重新開始</button>
+        <button class="end-btn end-btn-finish" onclick="finishGame()">結束遊戲</button>
+      </div>
+    </div>
+
     <div class="upload-overlay" id="uploadOverlay">
       <h2>空氣指揮家</h2>
       <p>載入 MIDI 檔案——音樂會自動播放。<br>

@@ -130,6 +130,61 @@ header h1 {
 }
 .upload-overlay .upload-btn { padding: 11px 32px; font-size: 0.72rem; }
 
+/* Start overlay */
+.start-overlay {
+  position: absolute; inset: 0;
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center; gap: 16px;
+  background: rgba(9,9,13,0.80); z-index: 19; cursor: pointer;
+}
+[data-theme="light"] .start-overlay { background: rgba(244,241,235,0.85); }
+.start-overlay .start-icon {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 5rem; color: var(--silver); line-height: 1;
+  text-shadow: 0 0 40px var(--silver-glow);
+}
+.start-overlay h2 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 2rem; font-weight: 300; color: var(--silver); letter-spacing: 0.06em;
+}
+.start-overlay p {
+  font-size: 0.72rem; color: var(--text-dim);
+  text-align: center; max-width: 280px; line-height: 2.1; letter-spacing: 0.04em;
+}
+
+/* End overlay */
+.end-overlay {
+  position: absolute; inset: 0;
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center; gap: 20px;
+  background: rgba(9,9,13,0.93); z-index: 21;
+}
+[data-theme="light"] .end-overlay { background: rgba(244,241,235,0.96); }
+.end-overlay h2 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 2rem; font-weight: 300; color: var(--silver); letter-spacing: 0.06em;
+}
+.end-stat-label {
+  font-size: 0.6rem; letter-spacing: 0.2em;
+  text-transform: uppercase; color: var(--text-dim);
+}
+.end-score-big {
+  font-size: 4.5rem; font-weight: 300; color: var(--silver);
+  font-variant-numeric: tabular-nums; line-height: 1;
+}
+.end-chips { display: flex; gap: 14px; }
+.end-btns { display: flex; gap: 12px; margin-top: 6px; }
+.end-btn {
+  padding: 10px 28px; border: 1px solid var(--silver);
+  background: transparent; color: var(--silver);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.7rem; letter-spacing: 0.12em;
+  text-transform: uppercase; cursor: pointer; transition: all 0.2s;
+}
+.end-btn:hover { background: var(--silver); color: var(--bg); }
+.end-btn-finish { border-color: var(--text-dim); color: var(--text-dim); }
+.end-btn-finish:hover { background: var(--text-dim); color: var(--bg); }
+
 /* Countdown overlay */
 .countdown-overlay {
   position: absolute; inset: 0;
@@ -342,3 +397,14 @@ html[data-elder] .upload-overlay .upload-btn { font-size: 0.9rem; padding: 16px 
 
 /* Countdown */
 html[data-elder] .countdown-num { font-size: 14rem; }
+
+/* Start overlay */
+html[data-elder] .start-overlay .start-icon { font-size: 7rem; }
+html[data-elder] .start-overlay h2 { font-size: 2.8rem; }
+html[data-elder] .start-overlay p  { font-size: 1rem; line-height: 2.5; }
+
+/* End overlay */
+html[data-elder] .end-overlay h2 { font-size: 2.8rem; }
+html[data-elder] .end-score-big   { font-size: 6rem; }
+html[data-elder] .end-stat-label  { font-size: 0.85rem; }
+html[data-elder] .end-btn         { font-size: 0.9rem; padding: 14px 36px; }

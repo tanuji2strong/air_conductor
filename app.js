@@ -59,14 +59,14 @@ class MidiAnalyzer {
 //  AUTO SCHEDULER
 // ═══════════════════════════════════════════
 class AutoScheduler {
-  constructor(analyzer,ac,instrument,onBeatScheduled){
+  constructor(analyzer,ac,instrument,onBeatScheduled,onSongEnd){
     this.a=analyzer; this.ac=ac; this.inst=instrument;
-    this.onBeatScheduled=onBeatScheduled;
+    this.onBeatScheduled=onBeatScheduled; this.onSongEnd=onSongEnd||null;
     this.bpm=analyzer.initialBpm; this.speedFactor=1.0; this.beatS=60/this.bpm;
     this.ts=[4,4]; this.playing=false; this.muted=false;
     this._nodes=[]; this._AHEAD=0.15;
     this.currentTick=0; this.eventIndex=0;
-    this.nextBeatAudioTime=0; this._beatNum=1;
+    this.nextBeatAudioTime=0; this._beatNum=1; this._songEndScheduled=false;
   }
   setTS(ts){this.ts=ts;}
   start(delayS=0.35){
@@ -82,7 +82,7 @@ class AutoScheduler {
     this.speedFactor=factor;
     this.beatS=(60/this.bpm)/factor;
   }
-  reset(){this.playing=false;this.currentTick=0;this.eventIndex=0;this._beatNum=1;this._stopAll();}
+  reset(){this.playing=false;this.currentTick=0;this.eventIndex=0;this._beatNum=1;this._songEndScheduled=false;this._stopAll();}
   _stopAll(){for(const n of this._nodes)try{n.node.stop();}catch{}this._nodes=[];}
   _midiName(n){return['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'][n%12]+(Math.floor(n/12)-1);}
   _play(ev,when){
@@ -98,6 +98,7 @@ class AutoScheduler {
     this._nodes=this._nodes.filter(n=>n.endTime>now);
     while(this.nextBeatAudioTime<now+this._AHEAD){
       this._scheduleBeat(this.nextBeatAudioTime);
+      if(!this.playing)break;
       const msAhead=(this.nextBeatAudioTime-now)*1000;
       this.onBeatScheduled(performance.now()+msAhead, this._beatNum);
       this._beatNum=(this._beatNum%this.ts[0])+1;
@@ -113,7 +114,11 @@ class AutoScheduler {
       this._play(ev,startTime+frac*this.beatS);i++;
     }
     this.currentTick=e;
-    if(this.currentTick>=this.a.totalTicks){this.currentTick=0;this.eventIndex=0;}
+    if(this.currentTick>=this.a.totalTicks&&!this._songEndScheduled){
+      this._songEndScheduled=true;
+      this.playing=false;
+      if(this.onSongEnd)setTimeout(()=>this.onSongEnd(),2000);
+    }
   }
   get progress(){return this.a.totalTicks?this.currentTick/this.a.totalTicks:0;}
 }
@@ -373,12 +378,63 @@ async function startCountdown(){
   const ov=document.getElementById('countdownOverlay');
   const nm=document.getElementById('countdownNum');
   ov.style.display='flex';
-  for(let i=3;i>=1;i--){nm.textContent=i;await new Promise(r=>setTimeout(r,900));}
+  for(let i=10;i>=1;i--){nm.textContent=i;await new Promise(r=>setTimeout(r,900));}
   nm.textContent='♩';await new Promise(r=>setTimeout(r,600));
   ov.style.display='none';
-  // Resume audioCtx here too — user just interacted via file picker
   if(audioCtx&&audioCtx.state==='suspended') audioCtx.resume();
   scheduler.start(0.25);
+  const pb=document.getElementById('pauseBtn');
+  if(pb){pb.disabled=false;pb.textContent='⏸';pb.title='暫停';}
+}
+
+
+// ═══════════════════════════════════════════
+//  GAME FLOW
+// ═══════════════════════════════════════════
+function waitForStartClick(){
+  document.getElementById('startOverlay').style.display='flex';
+}
+function onStartOverlayClick(){
+  document.getElementById('startOverlay').style.display='none';
+  startCountdown();
+}
+function showEndScreen(){
+  if(!judge)return;
+  document.getElementById('endScore').textContent=judge.score;
+  document.getElementById('endB1').textContent=judge.b1Hits;
+  document.getElementById('endBonus').textContent=judge.bonusHits;
+  document.getElementById('endOverlay').style.display='flex';
+  isPaused=false;
+  _hudDirty=true;
+  const pb=document.getElementById('pauseBtn');
+  if(pb){pb.disabled=true;pb.textContent='⏸';pb.title='暫停';}
+}
+function _resetPlayState(){
+  trail=[];
+  poseBuf=[];wasAboveHigh=false;wasAboveHighTimestamp=0;peakSpeed=0;lastBeatMs=0;
+  _prevBeatMs=0;_nextBeatMs=0;_currentBeatNum=1;_nextBeatNum=1;
+  isPaused=false;
+  _hudDirty=true;
+}
+function restartGame(){
+  document.getElementById('endOverlay').style.display='none';
+  document.getElementById('startOverlay').style.display='none';
+  if(scheduler)scheduler.reset();
+  if(judge){judge.reset();updateScoreUI();}
+  _resetPlayState();
+  const pb=document.getElementById('pauseBtn');
+  if(pb){pb.disabled=true;pb.textContent='⏸';pb.title='暫停';}
+  waitForStartClick();
+}
+function finishGame(){
+  document.getElementById('endOverlay').style.display='none';
+  if(scheduler)scheduler.reset();
+  if(judge){judge.reset();updateScoreUI();}
+  _resetPlayState();
+  analyzer=null;scheduler=null;judge=null;
+  const pb=document.getElementById('pauseBtn');
+  if(pb){pb.disabled=true;pb.textContent='⏸';pb.title='暫停';}
+  document.getElementById('uploadOverlay').style.display='flex';
 }
 
 
@@ -387,6 +443,8 @@ async function startCountdown(){
 // ═══════════════════════════════════════════
 document.getElementById('fileInput').addEventListener('change',async(e)=>{
   const file=e.target.files[0];if(!file)return;
+  document.getElementById('startOverlay').style.display='none';
+  document.getElementById('endOverlay').style.display='none';
   document.getElementById('fileName').textContent=file.name;
 
   try{
@@ -418,20 +476,20 @@ document.getElementById('fileInput').addEventListener('change',async(e)=>{
       _currentBeatNum=_nextBeatNum;
       _nextBeatMs=beatPerfMs;
       _nextBeatNum=beatNum;
-    });
+    },showEndScreen);
     scheduler.setTS(currentTS);
 
     document.getElementById('uploadOverlay').style.display='none';
     isPaused=false;
     const pb=document.getElementById('pauseBtn');
-    if(pb){pb.disabled=false;pb.textContent='⏸';pb.title='Pause';}
+    if(pb){pb.disabled=true;pb.textContent='⏸';pb.title='暫停';}
     // Reset speed slider to 100% for new file
     const ss=document.getElementById('speedSlider');
     if(ss){ss.value=100;document.getElementById('speedVal').textContent='1.00×';}
     updateScoreUI();
 
-    // Start audio/countdown regardless of camera state
-    startCountdown();
+    // Show start overlay — countdown begins only on click
+    waitForStartClick();
 
     // Start camera separately so a camera failure doesn't block audio
     if(!cameraStarted){
@@ -686,15 +744,7 @@ function startCamera(){
 // ═══════════════════════════════════════════
 document.addEventListener('keydown',e=>{
   if(e.key==='r'||e.key==='R'){
-    if(scheduler){scheduler.reset();startCountdown();}
-    if(judge){judge.reset();updateScoreUI();}
-    trail=[];
-    poseBuf=[];wasAboveHigh=false;wasAboveHighTimestamp=0;peakSpeed=0;lastBeatMs=0;
-    _prevBeatMs=0;_nextBeatMs=0;_currentBeatNum=1;_nextBeatNum=1;
-    isPaused=false;
-    _hudDirty=true;
-    const pb=document.getElementById('pauseBtn');
-    if(pb){pb.textContent='⏸';pb.title='Pause';}
+    if(analyzer)restartGame();
   }else if(e.key===' '){
     e.preventDefault();togglePause();
   }else if(e.key==='m'||e.key==='M'){
