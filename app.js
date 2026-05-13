@@ -174,21 +174,24 @@ class BeatJudge {
 // ═══════════════════════════════════════════
 let analyzer=null,scheduler=null,judge=null,audioCtx=null,instrument=null;
 let currentTS=[4,4],bpm0=120;
-let trail=[],cameraStarted=false;
+let cameraStarted=false;
 let _prevBeatMs=0,_nextBeatMs=0,_currentBeatNum=1,_nextBeatNum=1;
 let isPaused=false;
 let cachedSens=5,_hudDirty=true;
 let cachedHighThr=0.003*Math.pow(0.22,(5-1)/4);
 
-// Beat detection state (ported from metronome.html)
+// Beat detection state — per-hand
 const POS_BUF_SIZE = 8;
 const VELO_WINDOW  = 3;
 const MIN_BEAT_MS  = 200;
-let poseBuf = [];
-let wasAboveHigh = false;
-let wasAboveHighTimestamp = 0;
-let peakSpeed = 0;
+const handState = {
+  left:  { poseBuf: [], wasAboveHigh: false, wasAboveHighTimestamp: 0, peakSpeed: 0, trail: [] },
+  right: { poseBuf: [], wasAboveHigh: false, wasAboveHighTimestamp: 0, peakSpeed: 0, trail: [] }
+};
 let lastBeatMs = 0;
+let autoPaused = false;
+let countdownActive = false;
+let bothStillSinceMs = 0;
 
 // Cached DOM references — queried once, reused in rAF loops
 const elProgressFill=document.getElementById('progressFill');
@@ -238,57 +241,49 @@ function onSensChange(val){
 
 
 // ═══════════════════════════════════════════
-//  BEAT DETECTION (ported from metronome.html)
+//  BEAT DETECTION — per-hand
 // ═══════════════════════════════════════════
-function smoothedSpeed() {
-  const len=poseBuf.length;
+function handSpeed(state) {
+  const buf=state.poseBuf, len=buf.length;
   if(len<2)return 0;
   const start=Math.max(0,len-VELO_WINDOW);
   let sum=0,n=0;
   for(let i=start+1;i<len;i++){
-    const dt=poseBuf[i].t-poseBuf[i-1].t;
+    const dt=buf[i].t-buf[i-1].t;
     if(dt>0){
-      const dx=poseBuf[i].x-poseBuf[i-1].x;
-      const dy=poseBuf[i].y-poseBuf[i-1].y;
-      sum+=Math.sqrt(dx*dx+dy*dy)/dt;
-      n++;
+      const dx=buf[i].x-buf[i-1].x;
+      const dy=buf[i].y-buf[i-1].y;
+      sum+=Math.sqrt(dx*dx+dy*dy)/dt;n++;
     }
   }
   return n?sum/n:0;
 }
 
-function onWrist(x, y, speed, frameT) {
-  const t = frameT;
-  poseBuf.push({ x, y, t });
-  if (poseBuf.length > POS_BUF_SIZE) poseBuf.shift();
-  if (poseBuf.length < VELO_WINDOW) return;
-
-  const highThr = cachedHighThr;
-
-  if (speed > highThr) {
-    if (!wasAboveHigh) {
-      wasAboveHigh = true;
-      wasAboveHighTimestamp = t;
-      peakSpeed = speed;
-    } else if (speed > peakSpeed) {
-      peakSpeed = speed;
+function detectBeat(speed, frameT, state) {
+  const highThr=cachedHighThr;
+  if(speed>highThr){
+    if(!state.wasAboveHigh){
+      state.wasAboveHigh=true;
+      state.wasAboveHighTimestamp=frameT;
+      state.peakSpeed=speed;
+    }else if(speed>state.peakSpeed){
+      state.peakSpeed=speed;
     }
   }
-
-  if (wasAboveHigh && speed < peakSpeed * 0.55) {
-    const elapsed = t - lastBeatMs;
-    const withinWindow = (t - wasAboveHighTimestamp) < 600;
-    if (elapsed >= MIN_BEAT_MS && withinWindow) {
-      lastBeatMs = t;
-      if (scheduler?.playing && judge) {
-        const result = judge.onGesture();
-        if (result === 'hit1')       { flashOverlay(80, 216, 154); }
-        else if (result === 'bonus') { flashOverlay(80, 160, 255); }
-        if (result !== 'ignored') updateScoreUI();
+  if(state.wasAboveHigh&&speed<state.peakSpeed*0.55){
+    const elapsed=frameT-lastBeatMs;
+    const withinWindow=(frameT-state.wasAboveHighTimestamp)<600;
+    if(elapsed>=MIN_BEAT_MS&&withinWindow){
+      lastBeatMs=frameT;
+      if(scheduler?.playing&&judge){
+        const result=judge.onGesture();
+        if(result==='hit1')      {flashOverlay(80,216,154);}
+        else if(result==='bonus'){flashOverlay(80,160,255);}
+        if(result!=='ignored')updateScoreUI();
       }
     }
-    wasAboveHigh = false;
-    peakSpeed = 0;
+    state.wasAboveHigh=false;
+    state.peakSpeed=0;
   }
 }
 
@@ -378,9 +373,11 @@ async function startCountdown(){
   const ov=document.getElementById('countdownOverlay');
   const nm=document.getElementById('countdownNum');
   ov.style.display='flex';
+  countdownActive=true;
   for(let i=10;i>=1;i--){nm.textContent=i;await new Promise(r=>setTimeout(r,900));}
   nm.textContent='♩';await new Promise(r=>setTimeout(r,600));
   ov.style.display='none';
+  countdownActive=false;
   if(audioCtx&&audioCtx.state==='suspended') audioCtx.resume();
   scheduler.start(0.25);
   const pb=document.getElementById('pauseBtn');
@@ -410,8 +407,9 @@ function showEndScreen(){
   if(pb){pb.disabled=true;pb.textContent='⏸';pb.title='暫停';}
 }
 function _resetPlayState(){
-  trail=[];
-  poseBuf=[];wasAboveHigh=false;wasAboveHighTimestamp=0;peakSpeed=0;lastBeatMs=0;
+  handState.left ={poseBuf:[],wasAboveHigh:false,wasAboveHighTimestamp:0,peakSpeed:0,trail:[]};
+  handState.right={poseBuf:[],wasAboveHigh:false,wasAboveHighTimestamp:0,peakSpeed:0,trail:[]};
+  lastBeatMs=0;autoPaused=false;countdownActive=false;bothStillSinceMs=0;
   _prevBeatMs=0;_nextBeatMs=0;_currentBeatNum=1;_nextBeatNum=1;
   isPaused=false;
   _hudDirty=true;
@@ -467,7 +465,9 @@ document.getElementById('fileInput').addEventListener('change',async(e)=>{
 
     judge=new BeatJudge(bpm0);
     _prevBeatMs=0;_nextBeatMs=0;_currentBeatNum=1;_nextBeatNum=1;
-    poseBuf=[];wasAboveHigh=false;wasAboveHighTimestamp=0;peakSpeed=0;lastBeatMs=0;
+    handState.left ={poseBuf:[],wasAboveHigh:false,wasAboveHighTimestamp:0,peakSpeed:0,trail:[]};
+    handState.right={poseBuf:[],wasAboveHigh:false,wasAboveHighTimestamp:0,peakSpeed:0,trail:[]};
+    lastBeatMs=0;autoPaused=false;
 
     scheduler=new AutoScheduler(analyzer,audioCtx,instrument,(beatPerfMs,beatNum)=>{
       judge.addBeat(beatPerfMs,beatNum);
@@ -629,77 +629,136 @@ function startCamera(){
   const ctx=canvas.getContext('2d');
   let frameTimestamp=0;
 
+  // Fixed display resolution — camera captures 320×240 but canvas stays at 640×480
+  canvas.width=640;canvas.height=480;
+
+  // Last-known hand state shared between detection callback and draw loop.
+  // wx/wy are stable pixel-coord copies set in onResults so drawFrame never reads
+  // a lm reference that MediaPipe may have replaced with a newer frame's data.
+  const known={
+    left: {lm:null,speed:0,wx:0,wy:0},
+    right:{lm:null,speed:0,wx:0,wy:0}
+  };
+
   const pose=new Pose({
     locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}`
   });
   pose.setOptions({
-    modelComplexity:0,smoothLandmarks:true,
-    minDetectionConfidence:0.6,minTrackingConfidence:0.6
+    modelComplexity:0,
+    smoothLandmarks:true,
+    minDetectionConfidence:0.5,
+    minTrackingConfidence:0.5
   });
 
+  const SIDES=['left','right'];
+  // Pose landmark indices: left wrist=15, right wrist=16 (person's own left/right)
+  const WRIST_IDX={left:15,right:16};
+
+  // Detection-only callback — no drawing here
   pose.onResults(results=>{
+    const W=canvas.width,H=canvas.height;
+    const lm=results.poseLandmarks;
+
+    // Update known state, trails, and beat detection
+    for(const side of SIDES){
+      const pt=lm&&lm[WRIST_IDX[side]];
+      const state=handState[side];
+      const k=known[side];
+      if(!pt||pt.visibility<0.3){k.lm=null;state.trail=[];continue;}
+      k.lm=pt;
+      // Mirrored pixel position — matches the flipped camera feed in drawFrame
+      k.wx=(1-pt.x)*W; k.wy=pt.y*H;
+      state.trail.push([k.wx,k.wy]);
+      if(state.trail.length>18)state.trail.shift();
+      state.poseBuf.push({x:pt.x,y:pt.y,t:frameTimestamp});
+      if(state.poseBuf.length>POS_BUF_SIZE)state.poseBuf.shift();
+      k.speed=handSpeed(state);
+      detectBeat(k.speed,frameTimestamp,state);
+    }
+
+    // Auto-pause/resume using bilateral stillness detection
+    const lVis=known.left.lm!==null,  rVis=known.right.lm!==null;
+    const now=performance.now();
+    const STILL_THR=0.0003, STILL_MS=500;
+    const bothStill=lVis&&rVis&&known.left.speed<STILL_THR&&known.right.speed<STILL_THR;
+    if(!countdownActive&&scheduler&&scheduler.playing&&!isPaused&&!autoPaused){
+      if(bothStill){
+        if(bothStillSinceMs===0)bothStillSinceMs=now;
+        if(now-bothStillSinceMs>=STILL_MS){
+          bothStillSinceMs=0;
+          autoPaused=true;scheduler.pause();_hudDirty=true;
+        }
+      }else{
+        bothStillSinceMs=0;
+      }
+    }else if(!bothStill){
+      bothStillSinceMs=0;
+    }
+    if(autoPaused&&!isPaused&&scheduler){
+      if((lVis&&known.left.speed>=STILL_THR)||(rVis&&known.right.speed>=STILL_THR)){
+        autoPaused=false;bothStillSinceMs=0;
+        if(audioCtx?.state==='suspended')audioCtx.resume();
+        scheduler.resume(0.1);_hudDirty=true;
+      }
+    }
+  });
+
+  // Draw loop — runs every rAF frame, reads last-known state
+  function drawFrame(){
     const W=canvas.width,H=canvas.height;
     ctx.clearRect(0,0,W,H);
 
-    // Mirrored camera feed
+    // Mirrored camera feed (scales 320×240 video up to 640×480 canvas)
     ctx.save();ctx.translate(W,0);ctx.scale(-1,1);
-    ctx.drawImage(results.image,0,0,W,H);
+    ctx.drawImage(video,0,0,W,H);
     ctx.restore();
 
-    if(results.poseLandmarks){
-      const speed=smoothedSpeed();
-      const elder=isElderMode();
-      const lm=results.poseLandmarks;
-      const mirX=l=>(1-l.x)*W, mirY=l=>l.y*H;
+    const elder=isElderMode();
+    for(const side of SIDES){
+      const k=known[side];
+      if(!k.lm)continue;
+      const wx=k.wx, wy=k.wy;        // stable copies, never read k.lm[0] here
+      const trail=handState[side].trail;
 
-      // Right arm: shoulder → elbow → wrist
-      const sh=lm[12],el=lm[14],wr=lm[16],idx=lm[20];
-      const sx=mirX(sh),sy=mirY(sh);
-      const ex=mirX(el),ey=mirY(el);
-      const wx=mirX(wr),wy=mirY(wr);
-      const ix=mirX(idx),iy=mirY(idx);
-
-      // Skeleton
-      ctx.strokeStyle='rgba(200,200,200,0.45)';ctx.lineWidth=2;
-      [[sx,sy,ex,ey],[ex,ey,wx,wy]].forEach(([x1,y1,x2,y2])=>{
-        ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
-      });
-
-      // Trail (wrist)
-      trail.push([ix,iy]);if(trail.length>18)trail.shift();
+      // Hard reset before each hand — prevents stale path from previous hand
+      // bleeding in when this hand's trail has 0 or 1 point (loop body never fires).
+      ctx.beginPath();
       for(let i=1;i<trail.length;i++){
-        const a=i/trail.length;
         ctx.strokeStyle=TRAIL_STYLES[i-1];
-        ctx.lineWidth=a*4.5;
-        ctx.beginPath();ctx.moveTo(trail[i-1][0],trail[i-1][1]);ctx.lineTo(trail[i][0],trail[i][1]);ctx.stroke();
+        ctx.lineWidth=(i/trail.length)*4.5;
+        ctx.beginPath();ctx.moveTo(trail[i-1][0],trail[i-1][1]);
+        ctx.lineTo(trail[i][0],trail[i][1]);ctx.stroke();
       }
 
-      // Wrist dot
-      ctx.fillStyle='#b0b8c4';ctx.shadowColor='#b0b8c4';ctx.shadowBlur=elder?20:12;
-      ctx.beginPath();ctx.arc(ix,iy,elder?11:6,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+      // Wrist dot: green = moving, orange = pre-pause warning (both still, 500ms window)
+      const prePause=bothStillSinceMs>0&&!autoPaused;
+      const dotColor=prePause?'#ff9040':'#50d89a';
+      ctx.fillStyle=dotColor;ctx.shadowColor=dotColor;ctx.shadowBlur=elder?20:12;
+      ctx.beginPath();ctx.arc(wx,wy,elder?11:6,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
 
       // Speed bar
-      {
-        const highThr=cachedHighThr;
-        const BAR_W=60,BAR_H=5;
-        const bx=ix-BAR_W/2,by=iy-22;
-        ctx.beginPath();ctx.roundRect(bx,by,BAR_W,BAR_H,3);
-        ctx.fillStyle='rgba(255,255,255,0.1)';ctx.fill();
-        const fill=Math.min(speed/highThr,1)*BAR_W;
-        ctx.beginPath();ctx.roundRect(bx,by,fill,BAR_H,3);
-        ctx.fillStyle=speed>=highThr?'#ff9040':'#b0b8c4';ctx.fill();
-        ctx.beginPath();ctx.moveTo(bx+BAR_W,by-2);ctx.lineTo(bx+BAR_W,by+BAR_H+2);
-        ctx.strokeStyle='rgba(255,255,255,0.25)';ctx.lineWidth=1;ctx.stroke();
-      }
-
-      // Beat detection
-      if(lm[20].visibility>0.3) onWrist(lm[20].x,lm[20].y,speed,frameTimestamp);
-    } else {
-      trail=[];
+      const highThr=cachedHighThr;
+      const BAR_W=60,BAR_H=5;
+      const bx=wx-BAR_W/2,by=wy-22;
+      ctx.beginPath();ctx.roundRect(bx,by,BAR_W,BAR_H,3);
+      ctx.fillStyle='rgba(255,255,255,0.1)';ctx.fill();
+      const fill=Math.min(k.speed/highThr,1)*BAR_W;
+      ctx.beginPath();ctx.roundRect(bx,by,fill,BAR_H,3);
+      ctx.fillStyle=k.speed>=highThr?'#ff9040':'#b0b8c4';ctx.fill();
+      ctx.beginPath();ctx.moveTo(bx+BAR_W,by-2);ctx.lineTo(bx+BAR_W,by+BAR_H+2);
+      ctx.strokeStyle='rgba(255,255,255,0.25)';ctx.lineWidth=1;ctx.stroke();
     }
 
-    // (HUD drawn on hudCanvas by its own rAF loop)
-    // (scheduler.update handled by the independent rAF loop above)
+    // Auto-pause overlay
+    if(autoPaused){
+      ctx.save();
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.font=`bold ${elder?52:36}px Cormorant Garamond, serif`;
+      ctx.fillStyle='rgba(220,220,220,0.88)';
+      ctx.shadowColor='rgba(0,0,0,0.55)';ctx.shadowBlur=12;
+      ctx.fillText('停止',W/2,H/2);
+      ctx.restore();
+    }
 
     // Floating score HUD
     if(judge?.lastResult){
@@ -723,19 +782,20 @@ function startCamera(){
         }
       }
     }
-  });
+    requestAnimationFrame(drawFrame);
+  }
+  requestAnimationFrame(drawFrame);
 
+  // Initialize fully before starting the camera — eliminates the race condition where
+  // early onFrame calls arrive before the WASM model has finished downloading.
   const camera=new Camera(video,{
-    onFrame:async()=>{
+    onFrame:()=>{
       frameTimestamp=performance.now();
-      const w=video.videoWidth||640,h=video.videoHeight||480;
-      if(canvas.width!==w)canvas.width=w;
-      if(canvas.height!==h)canvas.height=h;
-      await pose.send({image:video});
+      pose.send({image:video}).catch(err=>console.error('pose.send error:',err));
     },
-    width:640,height:480
+    width:480,height:360
   });
-  camera.start().catch(()=>alert('需要相機權限。請允許存取後重新整理頁面。'));
+  pose.initialize().then(()=>camera.start()).catch(()=>alert('需要相機權限。請允許存取後重新整理頁面。'));
 }
 
 
