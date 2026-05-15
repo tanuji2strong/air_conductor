@@ -130,7 +130,7 @@ class AutoScheduler {
 class BeatJudge {
   constructor(bpm=120){
     this._bpm=bpm; this.score=0; this.streak=0;
-    this.b1Hits=0; this.bonusHits=0;
+    this.b1Hits=0; this.bonusHits=0; this.perfectHits=0;
     this.pending=[]; this.lastResult=null; this.lastResultTime=0;
   }
   setBpm(b){this._bpm=b;}
@@ -138,7 +138,15 @@ class BeatJudge {
   get windowMs(){return Math.min(650,Math.max(380,(60000/this._bpm)*0.55));}
   addBeat(perfTime,beatNum){this.pending.push({perfTime,beatNum,judged:false});}
 
+  checkMisses(){
+    const now=performance.now();
+    for(const b of this.pending){
+      if(!b.judged&&now>b.perfTime+this.windowMs)this.streak=0;
+    }
+  }
+
   onGesture(){
+    this.checkMisses();
     const now=performance.now();
     let best=null,bestDiff=Infinity;
     for(const b of this.pending){
@@ -149,10 +157,13 @@ class BeatJudge {
     let result='ignored';
     if(best&&bestDiff<=this.windowMs){
       best.judged=true;
+      const perfect=bestDiff<=this.windowMs*0.35;
       if(best.beatNum===1){
-        this.score+=5;this.streak++;this.b1Hits++;result='hit1';
+        if(perfect){this.score+=7;this.streak++;this.b1Hits++;this.perfectHits++;result='perfect1';}
+        else        {this.score+=5;this.streak++;this.b1Hits++;result='hit1';}
       } else {
-        this.score+=1;this.streak++;this.bonusHits++;result='bonus';
+        if(perfect){this.score+=2;this.streak++;this.bonusHits++;this.perfectHits++;result='perfectBonus';}
+        else        {this.score+=1;this.streak++;this.bonusHits++;result='bonus';}
       }
     }
     const cutoff=now-this.windowMs*2;
@@ -163,7 +174,7 @@ class BeatJudge {
   _set(r,t){this.lastResult=r;this.lastResultTime=t;return r;}
   get accuracy(){return this.b1Hits===0?null:Math.round((this.b1Hits/(this.b1Hits+this.bonusHits))*100);}
   reset(){
-    this.score=0;this.streak=0;this.b1Hits=0;this.bonusHits=0;
+    this.score=0;this.streak=0;this.b1Hits=0;this.bonusHits=0;this.perfectHits=0;
     this.pending=[];this.lastResult=null;
   }
 }
@@ -176,6 +187,7 @@ let analyzer=null,scheduler=null,judge=null,audioCtx=null,instrument=null;
 let currentTS=[4,4],bpm0=120;
 let cameraStarted=false;
 let _prevBeatMs=0,_nextBeatMs=0,_currentBeatNum=1,_nextBeatNum=1;
+let _flareMs=0,_nextFlareAtMs=0,_flareBeatNum=0;
 let isPaused=false;
 let cachedSens=5,_hudDirty=true;
 let cachedHighThr=0.003*Math.pow(0.22,(5-1)/4);
@@ -190,6 +202,7 @@ const handState = {
 };
 let lastBeatMs = 0;
 let autoPaused = false;
+let crossPauseSinceMs = 0;
 let countdownActive = false;
 let bothStillSinceMs = 0;
 
@@ -277,7 +290,8 @@ function detectBeat(speed, frameT, state) {
       lastBeatMs=frameT;
       if(scheduler?.playing&&judge){
         const result=judge.onGesture();
-        if(result==='hit1')      {flashOverlay(80,216,154);}
+        if(result==='perfect1'||result==='perfectBonus'){flashOverlay(255,200,80);}
+        else if(result==='hit1')      {flashOverlay(80,216,154);}
         else if(result==='bonus'){flashOverlay(80,160,255);}
         if(result!=='ignored')updateScoreUI();
       }
@@ -397,9 +411,10 @@ function onStartOverlayClick(){
 }
 function showEndScreen(){
   if(!judge)return;
-  document.getElementById('endScore').textContent=judge.score;
-  document.getElementById('endB1').textContent=judge.b1Hits;
-  document.getElementById('endBonus').textContent=judge.bonusHits;
+  document.getElementById('endScore').textContent  =judge.score;
+  document.getElementById('endB1').textContent     =judge.b1Hits;
+  document.getElementById('endBonus').textContent  =judge.bonusHits;
+  document.getElementById('endPerfect').textContent=judge.perfectHits;
   document.getElementById('endOverlay').style.display='flex';
   isPaused=false;
   _hudDirty=true;
@@ -409,8 +424,9 @@ function showEndScreen(){
 function _resetPlayState(){
   handState.left ={poseBuf:[],wasAboveHigh:false,wasAboveHighTimestamp:0,peakSpeed:0,trail:[]};
   handState.right={poseBuf:[],wasAboveHigh:false,wasAboveHighTimestamp:0,peakSpeed:0,trail:[]};
-  lastBeatMs=0;autoPaused=false;countdownActive=false;bothStillSinceMs=0;
+  lastBeatMs=0;autoPaused=false;crossPauseSinceMs=0;countdownActive=false;bothStillSinceMs=0;
   _prevBeatMs=0;_nextBeatMs=0;_currentBeatNum=1;_nextBeatNum=1;
+  _flareMs=0;_nextFlareAtMs=0;_flareBeatNum=0;
   isPaused=false;
   _hudDirty=true;
 }
@@ -476,6 +492,8 @@ document.getElementById('fileInput').addEventListener('change',async(e)=>{
       _currentBeatNum=_nextBeatNum;
       _nextBeatMs=beatPerfMs;
       _nextBeatNum=beatNum;
+      _nextFlareAtMs=beatPerfMs;
+      _flareBeatNum=beatNum;
     },showEndScreen);
     scheduler.setTS(currentTS);
 
@@ -523,8 +541,9 @@ function updateScoreUI(){
   if(!judge)return;
   document.getElementById('scoreVal').textContent  =judge.score;
   document.getElementById('streakVal').textContent =judge.streak;
-  document.getElementById('b1HitsVal').textContent =judge.b1Hits;
-  document.getElementById('bonusVal').textContent  =judge.bonusHits;
+  document.getElementById('b1HitsVal').textContent  =judge.b1Hits;
+  document.getElementById('bonusVal').textContent   =judge.bonusHits;
+  document.getElementById('perfHitsVal').textContent=judge.perfectHits;
 }
 
 function flashOverlay(r,g,b){
@@ -571,15 +590,64 @@ function drawMetronomeHUD() {
   const isIdle = !scheduler;
   const isB1   = _nextBeatNum === 1;
 
-  // Urgency glow: beat progress > 70%
-  let urgency = 0;
+  // Beat progress 0→1 between prev and next scheduled beat times
+  const now = performance.now();
+  let bp = 0;
   if (!isIdle) {
-    const now      = performance.now();
     const _total   = _nextBeatMs - _prevBeatMs;
     const _elapsed = now - _prevBeatMs;
-    const bp = (_total > 50 && _prevBeatMs > 0)
+    bp = (_total > 50 && _prevBeatMs > 0)
       ? Math.min(1, Math.max(0, _elapsed / _total)) : 0;
-    urgency = Math.max(0, (bp - 0.70) / 0.30);
+  }
+  const urgency = Math.max(0, (bp - 0.70) / 0.30);
+
+  // Flare: triggers the moment we cross the scheduled beat time
+  if (!isIdle && _nextFlareAtMs > 0 && now >= _nextFlareAtMs && _flareMs < _nextFlareAtMs) {
+    _flareMs = _nextFlareAtMs;
+  }
+  const flareAge = now - _flareMs;
+  const flareT   = _flareMs > 0 && flareAge < 160 ? Math.max(0, 1 - flareAge / 160) : 0;
+
+  // Beat anticipation arc
+  if (!isIdle) {
+    const arcCx = W / 2;
+    const arcCy = by + HUD_H / 2;
+    const arcR  = elder ? 68 : 52;
+    const arcLW = elder ? 3 : 2;
+    const flareIsB1 = _flareBeatNum === 1;
+
+    // Dim track ring
+    ctx.beginPath();
+    ctx.arc(arcCx, arcCy, arcR, 0, 2 * Math.PI);
+    ctx.strokeStyle = light ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.07)';
+    ctx.lineWidth = arcLW;
+    ctx.stroke();
+
+    // Sweep arc: grows clockwise from top as the beat approaches
+    if (bp > 0.01) {
+      const alpha = 0.3 + bp * 0.5 + flareT * 0.2;
+      ctx.beginPath();
+      ctx.arc(arcCx, arcCy, arcR, -Math.PI / 2, -Math.PI / 2 + bp * 2 * Math.PI);
+      ctx.strokeStyle = isB1
+        ? (light ? `rgba(106,116,128,${alpha})`       : `rgba(176,184,196,${alpha})`)
+        : (light ? `rgba(106,116,128,${alpha * 0.5})` : `rgba(176,184,196,${alpha * 0.5})`);
+      ctx.lineWidth = arcLW + flareT * 1.5;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+      ctx.lineCap = 'butt';
+    }
+
+    // Flare ring: expands and fades on beat arrival
+    if (flareT > 0) {
+      const flareR = arcR + (1 - flareT) * (elder ? 20 : 14);
+      ctx.beginPath();
+      ctx.arc(arcCx, arcCy, flareR, 0, 2 * Math.PI);
+      ctx.strokeStyle = flareIsB1
+        ? (light ? `rgba(106,116,128,${flareT * 0.55})` : `rgba(176,184,196,${flareT * 0.55})`)
+        : (light ? `rgba(106,116,128,${flareT * 0.28})` : `rgba(176,184,196,${flareT * 0.28})`);
+      ctx.lineWidth = arcLW;
+      ctx.stroke();
+    }
   }
 
   // Beat number (centered in backdrop)
@@ -603,12 +671,38 @@ function drawMetronomeHUD() {
   ctx.fillStyle = light ? 'rgba(100,90,70,0.55)' : 'rgba(180,180,180,0.5)';
   ctx.fillText(isIdle ? '— BPM' : (bpm0 * speedFactor).toFixed(0) + ' BPM', bx + HUD_W - 10, by + 10);
 
+  // Cross-pause gesture progress ring
+  if (crossPauseSinceMs > 0) {
+    const prog  = Math.min(1, (now - crossPauseSinceMs) / 400);
+    const indCx = W / 2;
+    const indCy = by + HUD_H + (elder ? 28 : 20);
+    const indR  = elder ? 16 : 12;
+    const indLW = elder ? 2.5 : 2;
+
+    ctx.beginPath();
+    ctx.arc(indCx, indCy, indR, 0, 2 * Math.PI);
+    ctx.strokeStyle = light ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = indLW;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(indCx, indCy, indR, -Math.PI / 2, -Math.PI / 2 + prog * 2 * Math.PI);
+    ctx.strokeStyle = light
+      ? `rgba(80,76,68,${0.45 + prog * 0.45})`
+      : `rgba(200,200,200,${0.45 + prog * 0.45})`;
+    ctx.lineWidth = indLW;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+    ctx.lineCap = 'butt';
+  }
+
   ctx.restore();
 }
 
 // Dedicated 60fps loop for the HUD — decoupled from MediaPipe
 function hudLoop() {
-  if(_hudDirty){drawMetronomeHUD();_hudDirty=false;}
+  const needsAnim = scheduler?.playing || (performance.now() - _flareMs < 200) || crossPauseSinceMs > 0;
+  if (_hudDirty || needsAnim) { drawMetronomeHUD(); _hudDirty = false; }
   requestAnimationFrame(hudLoop);
 }
 requestAnimationFrame(hudLoop);
@@ -618,9 +712,9 @@ requestAnimationFrame(hudLoop);
 //  MEDIAPIPE CAMERA
 // ═══════════════════════════════════════════
 const TRAIL_STYLES=Array.from({length:18},(_,i)=>`rgba(176,184,196,${((i+1)/18)*0.7})`);
-const _SCORE_COLOR={hit1:'80,216,154',bonus:'80,160,255'};
-const _SCORE_TEXT ={hit1:'✓ 第一拍',  bonus:'✦ 加分拍'};
-const _SCORE_DELTA={hit1:'+5',        bonus:'+1'};
+const _SCORE_COLOR={perfect1:'255,200,80',perfectBonus:'255,200,80',hit1:'80,216,154',bonus:'80,160,255'};
+const _SCORE_TEXT ={perfect1:'完美！',   perfectBonus:'完美！',   hit1:'✓ 第一拍',  bonus:'✦ 加分拍'};
+const _SCORE_DELTA={perfect1:'+7',       perfectBonus:'+2',       hit1:'+5',        bonus:'+1'};
 
 function startCamera(){
   cameraStarted=true;
@@ -679,7 +773,8 @@ function startCamera(){
     // Auto-pause/resume using bilateral stillness detection
     const lVis=known.left.lm!==null,  rVis=known.right.lm!==null;
     const now=performance.now();
-    const STILL_THR=0.0003, STILL_MS=500;
+    const STILL_THR=0.0003;
+    const STILL_MS=scheduler ? Math.max(800, scheduler.beatS * 2000) : 800;
     const bothStill=lVis&&rVis&&known.left.speed<STILL_THR&&known.right.speed<STILL_THR;
     if(!countdownActive&&scheduler&&scheduler.playing&&!isPaused&&!autoPaused){
       if(bothStill){
@@ -696,10 +791,29 @@ function startCamera(){
     }
     if(autoPaused&&!isPaused&&scheduler){
       if((lVis&&known.left.speed>=STILL_THR)||(rVis&&known.right.speed>=STILL_THR)){
-        autoPaused=false;bothStillSinceMs=0;
+        autoPaused=false;bothStillSinceMs=0;crossPauseSinceMs=0;
         if(audioCtx?.state==='suspended')audioCtx.resume();
         scheduler.resume(0.1);_hudDirty=true;
       }
+    }
+
+    // Pause gesture: both wrists above eye level, sustained 400ms
+    if(!countdownActive&&scheduler&&scheduler.playing&&!isPaused&&!autoPaused){
+      const el=lm&&lm[3], er=lm&&lm[4];
+      const wl=known.left.lm,  wr=known.right.lm;
+      const crossGesture=el&&er&&wl&&wr
+        &&wl.y<el.y&&wr.y<er.y;  // both wrists above respective eye landmarks
+      if(crossGesture){
+        if(crossPauseSinceMs===0)crossPauseSinceMs=now;
+        if(now-crossPauseSinceMs>=400){
+          crossPauseSinceMs=0;
+          autoPaused=true;scheduler.pause();_hudDirty=true;
+        }
+      }else{
+        crossPauseSinceMs=0;
+      }
+    }else if(!autoPaused&&!isPaused){
+      crossPauseSinceMs=0;
     }
   });
 

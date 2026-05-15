@@ -255,7 +255,9 @@ header h1 {
   padding: 3px 8px; border-radius: 2px; font-size: var(--fs-label); letter-spacing: 0.06em;
 }
 .chip-b1  { background: rgba(176,184,196,0.1);  color: var(--silver);  border: 1px solid rgba(176,184,196,0.25); }
-.chip-bon { background: rgba(80,216,154,0.08); color: var(--green); border: 1px solid rgba(80,216,154,0.22); }
+.chip-bon  { background: rgba(80,216,154,0.08);  color: var(--green);  border: 1px solid rgba(80,216,154,0.22); }
+.chip-perf { background: rgba(255,200,80,0.08); color: #c8960a;      border: 1px solid rgba(255,200,80,0.28); }
+[data-theme="light"] .chip-perf { color: #8a6400; }
 /* Metronome */
 #metroCanvas { display: block; margin: 0 auto; }
 .status-badge {
