@@ -18,7 +18,7 @@ class MidiAnalyzer {
     const rVLQ=()=>{let v=0,b,guard=0;do{b=r8();v=(v<<7)|(b&0x7f);if(++guard>4)break;}while(b&0x80);return v;};
     const all=[];
     try{
-      p+=4;p+=4; const fmt=r16(),numTracks=r16(); this.tpb=r16();
+      p+=4;p+=4; r16();const numTracks=r16(); this.tpb=r16();
       for(let t=0;t<numTracks;t++){
         try{
           p+=4; const tLen=r32();
@@ -64,8 +64,7 @@ class AutoScheduler {
     this.onBeatScheduled=onBeatScheduled; this.onSongEnd=onSongEnd||null;
     this.bpm=analyzer.initialBpm; this.speedFactor=1.0; this.beatS=60/this.bpm;
     this.ts=[4,4]; this.playing=false; this.muted=false;
-    this._AHEAD=0.15;
-    this.gainScale=1.0; this.lastChord=new Set();
+    this._AHEAD=0.15; this.gainScale=1.0; this.lastChord=new Set();
     this.currentTick=0; this.eventIndex=0;
     this.nextBeatAudioTime=0; this._beatNum=1; this._songEndScheduled=false;
   }
@@ -80,7 +79,6 @@ class AutoScheduler {
     this.playing=true;
   }
   setSpeed(factor){
-    this.speedFactor=factor;
     this.beatS=(60/this.bpm)/factor;
   }
   reset(){this.playing=false;this.currentTick=0;this.eventIndex=0;this._beatNum=1;this._songEndScheduled=false;this._stopAll();this.lastChord=new Set();}
@@ -132,7 +130,7 @@ class AutoScheduler {
 let analyzer=null,scheduler=null,instrument=null;
 let currentTS=[4,4],bpm0=120;
 let cameraStarted=false;
-let _prevBeatMs=0,_nextBeatMs=0,_currentBeatNum=1,_nextBeatNum=1;
+let _prevBeatMs=0,_nextBeatMs=0,_nextBeatNum=1;
 let _flareMs=0,_nextFlareAtMs=0,_flareBeatNum=0;
 let isPaused=false;
 let cachedSens=1,_hudDirty=true;
@@ -148,7 +146,6 @@ const handState = {
 };
 let lastBeatMs = 0;
 let autoPaused = false;
-let crossPaused = false;
 let crossPauseSinceMs = 0;
 let countdownActive = false;
 let smoothedBpm = 0;
@@ -368,13 +365,13 @@ function onStartOverlayClick(){
 function _resetPlayState(){
   handState.left ={poseBuf:[],wasAboveHigh:false,wasAboveHighTimestamp:0,peakSpeed:0,trail:[]};
   handState.right={poseBuf:[],wasAboveHigh:false,wasAboveHighTimestamp:0,peakSpeed:0,trail:[]};
-  lastBeatMs=0;autoPaused=false;crossPaused=false;crossPauseSinceMs=0;countdownActive=false;
+  lastBeatMs=0;autoPaused=false;crossPauseSinceMs=0;countdownActive=false;
   fistSinceMs=0;fistPaused=false;fistResumeCooldownMs=0;handFrameCounter=0;
   pinchSinceMs=0;fermataPaused=false;
   smoothedBpm=0;lastIctusMs=0;bpmBuffer=[];avgBpm=0;
   gainScale=1.0;
   if(scheduler)scheduler.gainScale=1.0;
-  _prevBeatMs=0;_nextBeatMs=0;_currentBeatNum=1;_nextBeatNum=1;
+  _prevBeatMs=0;_nextBeatMs=0;_nextBeatNum=1;
   _flareMs=0;_nextFlareAtMs=0;_flareBeatNum=0;
   isPaused=false;
   _hudDirty=true;
@@ -387,21 +384,20 @@ function restartGame(){
   if(pb){pb.disabled=true;pb.textContent='⏸';pb.title='暫停';}
   waitForStartClick();
 }
-function finishGame(){
-  if(scheduler)scheduler.reset();
-  _resetPlayState();
-  analyzer=null;scheduler=null;
-  const pb=document.getElementById('pauseBtn');
-  if(pb){pb.disabled=true;pb.textContent='⏸';pb.title='暫停';}
-  document.getElementById('uploadOverlay').style.display='flex';
-}
 function showSongEnd(){
   if(scheduler)scheduler.pause();
   _resetPlayState();
-  document.getElementById('uploadOverlay').querySelector('p').textContent='演奏結束！載入新的 MIDI 繼續指揮。';
-  document.getElementById('uploadOverlay').style.display='flex';
+  document.getElementById('songEndOverlay').style.display='flex';
   const pb=document.getElementById('pauseBtn');
   if(pb){pb.disabled=true;pb.textContent='⏸';pb.title='暫停';}
+}
+function playAgain(){
+  document.getElementById('songEndOverlay').style.display='none';
+  restartGame();
+}
+function loadNewSong(){
+  document.getElementById('songEndOverlay').style.display='none';
+  document.getElementById('uploadOverlay').style.display='flex';
 }
 
 
@@ -416,8 +412,6 @@ document.getElementById('fileInput').addEventListener('change',async(e)=>{
   try{
     analyzer=new MidiAnalyzer(await file.arrayBuffer());
     bpm0=analyzer.initialBpm;
-    const _fb410=document.getElementById('fileBpm'); if(_fb410) _fb410.textContent=bpm0.toFixed(1);
-
     currentTS=analyzer.timeSig;
     const COMPOUND_MAP={6:2,9:3,12:4};
     currentTS[0]=COMPOUND_MAP[currentTS[0]]??currentTS[0];
@@ -441,7 +435,7 @@ document.getElementById('fileInput').addEventListener('change',async(e)=>{
 
     await Tone.loaded();
 
-    _prevBeatMs=0;_nextBeatMs=0;_currentBeatNum=1;_nextBeatNum=1;
+    _prevBeatMs=0;_nextBeatMs=0;_nextBeatNum=1;
     handState.left ={poseBuf:[],wasAboveHigh:false,wasAboveHighTimestamp:0,peakSpeed:0,trail:[]};
     handState.right={poseBuf:[],wasAboveHigh:false,wasAboveHighTimestamp:0,peakSpeed:0,trail:[]};
     lastBeatMs=0;autoPaused=false;smoothedBpm=0;lastIctusMs=0;
@@ -479,14 +473,6 @@ document.getElementById('fileInput').addEventListener('change',async(e)=>{
   }
 });
 
-
-function flashOverlay(r,g,b){
-  const el=document.getElementById('beatFlash');
-  const elder=isElderMode();
-  el.style.background=`rgba(${r},${g},${b},${elder?0.45:0.2})`;
-  el.style.opacity='1';
-  setTimeout(()=>el.style.opacity='0',elder?300:110);
-}
 
 
 // ═══════════════════════════════════════════
@@ -597,13 +583,6 @@ function drawMetronomeHUD() {
   }
   ctx.fillText(isIdle ? '—' : String(_nextBeatNum), W / 2, by + HUD_H / 2 + (elder ? 8 : 5));
   ctx.shadowBlur = 0;
-
-  if (fistPaused) {
-    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.font = `${elder ? 11 : 9}px DM Mono, monospace`;
-    ctx.fillStyle = light ? 'rgba(200,60,60,0.85)' : 'rgba(224,82,82,0.9)';
-    ctx.fillText('✕ CUT-OFF', W / 2, by + HUD_H / 2 + (elder ? 52 : 40));
-  }
 
   // BPM panels — upper-right of backdrop
   ctx.textAlign = 'right'; ctx.textBaseline = 'top';
@@ -724,7 +703,7 @@ async function startCamera(){
   };
 
   const SIDES=['left','right'];
-  const WRIST_IDX={left:15,right:16};
+  const WRIST_IDX={left:19,right:20};
 
   try{
     const vision=await FilesetResolver.forVisionTasks(
@@ -788,8 +767,7 @@ async function startCamera(){
     }
 
     let lastHandResult = {landmarks:[],handedness:[]};
-    let fermataNote = null;
-    let fermataOscillators = [];
+    let fermataSynth = null;
 
     function isPinch(lm){
       const dx=lm[4].x-lm[8].x, dy=lm[4].y-lm[8].y;
@@ -816,9 +794,9 @@ async function startCamera(){
       const poseResult=poseLandmarker.detectForVideo(video,timestamp);
       const lm=poseResult.landmarks&&poseResult.landmarks[0]?poseResult.landmarks[0]:null;
 
-      // Landmark indices are from the subject's perspective (lm[15]=person's left wrist,
-      // lm[16]=person's right wrist). Only the right wrist drives beat detection per spec
-      // ("右手 — 指揮節拍"). Left wrist still tracked for trail and speed-bar display.
+      // Landmark indices are from the subject's perspective (lm[19]=person's left index tip,
+      // lm[20]=person's right index tip). Right index tip drives beat detection ("右手 — 指揮節拍").
+      // Left index tip tracked for trail, speed-bar, and dot display.
       // Dynamics use only the left hand (lm[19]/lm[11]/lm[23]) per spec.
       // k.wx = (1-pt.x)*W mirrors x from raw camera space to match the flipped display.
       for(const side of SIDES){
@@ -830,8 +808,14 @@ async function startCamera(){
         k.wx=(1-pt.x)*W; k.wy=pt.y*H;
         state.trail.push([k.wx,k.wy]);
         if(state.trail.length>18)state.trail.shift();
-        state.poseBuf.push({x:pt.x,y:pt.y,t:frameTimestamp});
-        if(state.poseBuf.length>POS_BUF_SIZE)state.poseBuf.shift();
+        const lastPos = state.poseBuf[state.poseBuf.length - 1];
+        const jumped = lastPos && (Math.abs(pt.x - lastPos.x) + Math.abs(pt.y - lastPos.y)) > 0.25;
+        if(!jumped){
+          state.poseBuf.push({x:pt.x,y:pt.y,t:frameTimestamp});
+          if(state.poseBuf.length>POS_BUF_SIZE)state.poseBuf.shift();
+        }else{
+          state.poseBuf=[];
+        }
         k.speed=handSpeed(state);
         if(side==='right') detectBeat(k.speed,frameTimestamp,state);
       }
@@ -866,7 +850,7 @@ async function startCamera(){
           if(crossPauseSinceMs===0)crossPauseSinceMs=now;
           if(now-crossPauseSinceMs>=150){
             crossPauseSinceMs=0;
-            autoPaused=true;crossPaused=true;scheduler.pause();_hudDirty=true;
+            autoPaused=true;scheduler.pause();_hudDirty=true;
           }
         }else{
           crossPauseSinceMs=0;
@@ -879,14 +863,14 @@ async function startCamera(){
         const wl=known.left.lm, wr=known.right.lm;
         const resumeGesture=el&&er&&wl&&wr&&wl.y>el.y&&wr.y>er.y;
         if(resumeGesture){
-          autoPaused=false;crossPaused=false;
+          autoPaused=false;
           Tone.start();
           scheduler.resume(0.1);_hudDirty=true;
         }
       }
 
       // ── HANDS (fist cut-off) ──
-      let rightLm=null,leftLm=null;
+      let leftLm=null;
       if(handLandmarker&&!countdownActive){
         handFrameCounter++;
         if(handFrameCounter%3===0){
@@ -899,9 +883,7 @@ async function startCamera(){
         const handResult=lastHandResult;
         if(handResult.landmarks&&handResult.landmarks.length>0){
           for(let i=0;i<handResult.handedness.length;i++){
-            if(handResult.handedness[i][0].categoryName==='Right'){
-              rightLm=handResult.landmarks[i];
-            }else if(handResult.handedness[i][0].categoryName==='Left'){
+            if(handResult.handedness[i][0].categoryName==='Left'){
               leftLm=handResult.landmarks[i];
             }
           }
@@ -927,36 +909,26 @@ async function startCamera(){
         if(!fistPaused&&fistSinceMs===0&&leftLm){
           if(isPinch(leftLm)){
             if(pinchSinceMs===0)pinchSinceMs=now;
-            if(now-pinchSinceMs>=150&&!fermataPaused){
+            if(now-pinchSinceMs>=20&&!fermataPaused){
               fermataPaused=true;
               if(scheduler)scheduler.pause();
-              fermataNote=null;
-              fermataOscillators=[];
-              if(scheduler?.lastChord?.size>0){
-                scheduler.lastChord.forEach(note=>{
-                  const osc=new Tone.Oscillator({
-                    frequency:Tone.Frequency(note).toFrequency(),
-                    type:'sine'
-                  }).toDestination();
-                  osc.volume.value=-40;
-                  osc.start(Tone.now());
-                  osc.volume.rampTo(-12,0.2);
-                  fermataOscillators.push(osc);
-                });
+              if(scheduler?.lastChord?.size > 0){
+                const notes = Array.from(scheduler.lastChord);
+                scheduler.inst.triggerAttack(notes, Tone.now() + 0.05);
+                fermataSynth = true;
               }
               _hudDirty=true;
             }
           }else{
             if(fermataPaused){
               fermataPaused=false;pinchSinceMs=0;
-              fermataOscillators.forEach(osc=>{
-                osc.volume.rampTo(-60,0.2);
-                setTimeout(()=>{
-                  try{osc.stop();osc.dispose();}catch(e){}
-                },250);
-              });
-              fermataOscillators=[];
-              fermataNote=null;
+              if(fermataSynth && scheduler?.inst){
+                const notes = Array.from(scheduler.lastChord?.size > 0 ? scheduler.lastChord : []);
+                if(notes.length > 0){
+                  scheduler.inst.triggerRelease(notes, Tone.now());
+                }
+                fermataSynth = null;
+              }
               Tone.start().then(()=>{if(scheduler)scheduler.resume(0.1);});
               _hudDirty=true;
             }else{
@@ -1036,7 +1008,16 @@ async function startCamera(){
         ctx.beginPath();ctx.moveTo(0,known.left.hipY*H);ctx.lineTo(W,known.left.hipY*H);ctx.stroke();
       }
 
-      if(autoPaused&&!fermataPaused){
+      if(fistPaused){
+        ctx.save();
+        ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.font=`bold ${elder?52:36}px Cormorant Garamond, serif`;
+        ctx.fillStyle='rgba(224,82,82,0.88)';
+        ctx.shadowColor='rgba(224,82,82,0.55)';ctx.shadowBlur=12;
+        ctx.fillText('✕ 截止',W/2,H/2);
+        ctx.shadowBlur=0;
+        ctx.restore();
+      }else if(autoPaused&&!fermataPaused){
         ctx.save();
         ctx.textAlign='center';ctx.textBaseline='middle';
         ctx.font=`bold ${elder?52:36}px Cormorant Garamond, serif`;

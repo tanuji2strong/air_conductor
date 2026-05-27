@@ -125,6 +125,32 @@ header h1 {
 }
 .upload-overlay .upload-btn { padding: 11px 32px; font-size: 0.72rem; }
 
+/* Song end overlay */
+.song-end-overlay {
+  position: absolute; inset: 0;
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center; gap: 28px;
+  background: rgba(9,9,13,0.93); z-index: 22;
+}
+[data-theme="light"] .song-end-overlay { background: rgba(244,241,235,0.95); }
+.song-end-overlay h2 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.9rem; font-weight: 300; color: var(--silver); letter-spacing: 0.06em;
+}
+.song-end-btns { display: flex; gap: 14px; }
+.song-end-btn {
+  padding: 11px 32px; border: 1px solid var(--silver);
+  background: transparent; color: var(--silver);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem; letter-spacing: 0.14em;
+  text-transform: uppercase; cursor: pointer; transition: all 0.2s;
+}
+.song-end-btn:hover { background: var(--silver); color: var(--bg); }
+.song-end-btn-new { border-color: var(--text-dim); color: var(--text-dim); }
+.song-end-btn-new:hover { background: var(--text-dim); color: var(--bg); }
+html[data-elder] .song-end-overlay h2 { font-size: 2.6rem; }
+html[data-elder] .song-end-btn { font-size: 0.9rem; padding: 14px 40px; }
+
 /* Start overlay */
 .start-overlay {
   position: absolute; inset: 0;
