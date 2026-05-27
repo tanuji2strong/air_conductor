@@ -59,43 +59,44 @@ class MidiAnalyzer {
 //  AUTO SCHEDULER
 // ═══════════════════════════════════════════
 class AutoScheduler {
-  constructor(analyzer,ac,instrument,onBeatScheduled,onSongEnd){
-    this.a=analyzer; this.ac=ac; this.inst=instrument;
+  constructor(analyzer,instrument,onBeatScheduled,onSongEnd){
+    this.a=analyzer; this.inst=instrument;
     this.onBeatScheduled=onBeatScheduled; this.onSongEnd=onSongEnd||null;
     this.bpm=analyzer.initialBpm; this.speedFactor=1.0; this.beatS=60/this.bpm;
     this.ts=[4,4]; this.playing=false; this.muted=false;
-    this._nodes=[]; this._AHEAD=0.15;
+    this._AHEAD=0.15;
+    this.gainScale=1.0; this.lastChord=new Set();
     this.currentTick=0; this.eventIndex=0;
     this.nextBeatAudioTime=0; this._beatNum=1; this._songEndScheduled=false;
   }
   setTS(ts){this.ts=ts;}
   start(delayS=0.35){
     this.playing=true;
-    this.nextBeatAudioTime=this.ac.currentTime+delayS;
+    this.nextBeatAudioTime=Tone.now()+delayS;
   }
   pause(){this.playing=false;this._stopAll();}
   resume(delayS=0.08){
-    this.nextBeatAudioTime=this.ac.currentTime+delayS;
+    this.nextBeatAudioTime=Tone.now()+delayS;
     this.playing=true;
   }
   setSpeed(factor){
     this.speedFactor=factor;
     this.beatS=(60/this.bpm)/factor;
   }
-  reset(){this.playing=false;this.currentTick=0;this.eventIndex=0;this._beatNum=1;this._songEndScheduled=false;this._stopAll();}
-  _stopAll(){for(const n of this._nodes)try{n.node.stop();}catch{}this._nodes=[];}
+  reset(){this.playing=false;this.currentTick=0;this.eventIndex=0;this._beatNum=1;this._songEndScheduled=false;this._stopAll();this.lastChord=new Set();}
+  _stopAll(){if(this.inst)this.inst.releaseAll();}
   _midiName(n){return['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'][n%12]+(Math.floor(n/12)-1);}
   _play(ev,when){
     if(this.muted||ev.channel===9||!this.inst)return;
     if(ev.type==='note_on'&&ev.velocity>0){
-      const nd=this.inst.play(this._midiName(ev.note),when,{duration:1.5,gain:(ev.velocity/127)*0.9});
-      if(nd)this._nodes.push({node:nd,endTime:when+1.65});
+      const noteName=this._midiName(ev.note);
+      this.inst.triggerAttackRelease(noteName,1.5,when,(ev.velocity/127)*0.9*this.gainScale);
+      this.lastChord.add(noteName);
     }
   }
   update(){
     if(!this.playing)return;
-    const now=this.ac.currentTime;
-    this._nodes=this._nodes.filter(n=>n.endTime>now);
+    const now=Tone.now();
     while(this.nextBeatAudioTime<now+this._AHEAD){
       this._scheduleBeat(this.nextBeatAudioTime);
       if(!this.playing)break;
@@ -106,6 +107,7 @@ class AutoScheduler {
     }
   }
   _scheduleBeat(startTime){
+    this.lastChord.clear();
     const s=this.currentTick,e=s+this.a.tpb,evs=this.a.events;
     while(this.eventIndex<evs.length&&evs[this.eventIndex].absTick<s)this.eventIndex++;
     let i=this.eventIndex;
@@ -125,72 +127,16 @@ class AutoScheduler {
 
 
 // ═══════════════════════════════════════════
-//  BEAT JUDGE  — every synced beat = +1
-// ═══════════════════════════════════════════
-class BeatJudge {
-  constructor(bpm=120){
-    this._bpm=bpm; this.score=0; this.streak=0;
-    this.b1Hits=0; this.bonusHits=0; this.perfectHits=0;
-    this.pending=[]; this.lastResult=null; this.lastResultTime=0;
-  }
-  setBpm(b){this._bpm=b;}
-  // Window = 55% of beat interval, clamped 380–650ms.
-  get windowMs(){return Math.min(650,Math.max(380,(60000/this._bpm)*0.55));}
-  addBeat(perfTime,beatNum){this.pending.push({perfTime,beatNum,judged:false});}
-
-  checkMisses(){
-    const now=performance.now();
-    for(const b of this.pending){
-      if(!b.judged&&now>b.perfTime+this.windowMs)this.streak=0;
-    }
-  }
-
-  onGesture(){
-    this.checkMisses();
-    const now=performance.now();
-    let best=null,bestDiff=Infinity;
-    for(const b of this.pending){
-      if(b.judged)continue;
-      const diff=Math.abs(now-b.perfTime);
-      if(diff<bestDiff){bestDiff=diff;best=b;}
-    }
-    let result='ignored';
-    if(best&&bestDiff<=this.windowMs){
-      best.judged=true;
-      const perfect=bestDiff<=this.windowMs*0.35;
-      if(best.beatNum===1){
-        if(perfect){this.score+=7;this.streak++;this.b1Hits++;this.perfectHits++;result='perfect1';}
-        else        {this.score+=5;this.streak++;this.b1Hits++;result='hit1';}
-      } else {
-        if(perfect){this.score+=2;this.streak++;this.bonusHits++;this.perfectHits++;result='perfectBonus';}
-        else        {this.score+=1;this.streak++;this.bonusHits++;result='bonus';}
-      }
-    }
-    const cutoff=now-this.windowMs*2;
-    this.pending=this.pending.filter(b=>b.perfTime>cutoff);
-    return this._set(result,now);
-  }
-
-  _set(r,t){this.lastResult=r;this.lastResultTime=t;return r;}
-  get accuracy(){return this.b1Hits===0?null:Math.round((this.b1Hits/(this.b1Hits+this.bonusHits))*100);}
-  reset(){
-    this.score=0;this.streak=0;this.b1Hits=0;this.bonusHits=0;this.perfectHits=0;
-    this.pending=[];this.lastResult=null;
-  }
-}
-
-
-// ═══════════════════════════════════════════
 //  APP STATE
 // ═══════════════════════════════════════════
-let analyzer=null,scheduler=null,judge=null,audioCtx=null,instrument=null;
+let analyzer=null,scheduler=null,instrument=null;
 let currentTS=[4,4],bpm0=120;
 let cameraStarted=false;
 let _prevBeatMs=0,_nextBeatMs=0,_currentBeatNum=1,_nextBeatNum=1;
 let _flareMs=0,_nextFlareAtMs=0,_flareBeatNum=0;
 let isPaused=false;
-let cachedSens=5,_hudDirty=true;
-let cachedHighThr=0.003*Math.pow(0.22,(5-1)/4);
+let cachedSens=1,_hudDirty=true;
+let cachedHighThr=0.003*Math.pow(0.22,(1-1)/4);
 
 // Beat detection state — per-hand
 const POS_BUF_SIZE = 8;
@@ -202,15 +148,29 @@ const handState = {
 };
 let lastBeatMs = 0;
 let autoPaused = false;
+let crossPaused = false;
 let crossPauseSinceMs = 0;
 let countdownActive = false;
-let bothStillSinceMs = 0;
+let smoothedBpm = 0;
+let lastIctusMs = 0;
+const SMOOTHING = 0.30;
+const BPM_BUFFER_SIZE = 6;
+let bpmBuffer = [];
+let avgBpm = 0;
+let gainScale = 1.0;
+const GAIN_RATE = 0.01;
+const GAIN_MIN = 0.1;
+const GAIN_MAX = 2;
+let fistPaused = false, fistSinceMs = 0, fistResumeCooldownMs = 0;
+let pinchSinceMs = 0, fermataPaused = false;
+const FIST_HOLD_MS = 300;
+const FIST_COOLDOWN = 800;
+let handFrameCounter = 0;
 
 // Cached DOM references — queried once, reused in rAF loops
 const elProgressFill=document.getElementById('progressFill');
 const elHudCanvas   =document.getElementById('hudCanvas');
 const elCamCanvas   =document.getElementById('canvasEl');
-const elSpeedSlider =document.getElementById('speedSlider');
 
 
 // ═══════════════════════════════════════════
@@ -240,7 +200,21 @@ function toggleElderMode(){
   _hudDirty=true;
 }
 
-
+function toggleHelp(){
+  const d=document.getElementById('helpDropdown');
+  const b=document.getElementById('helpBtn');
+  const open=d.classList.toggle('open');
+  b.textContent=open?'說明 ▴':'說明 ▾';
+}
+document.addEventListener('click',e=>{
+  const wrap=document.getElementById('helpWrap');
+  if(wrap&&!wrap.contains(e.target)){
+    const d=document.getElementById('helpDropdown');
+    const b=document.getElementById('helpBtn');
+    if(d)d.classList.remove('open');
+    if(b)b.textContent='說明 ▾';
+  }
+});
 
 
 // ═══════════════════════════════════════════
@@ -288,13 +262,21 @@ function detectBeat(speed, frameT, state) {
     const withinWindow=(frameT-state.wasAboveHighTimestamp)<600;
     if(elapsed>=MIN_BEAT_MS&&withinWindow){
       lastBeatMs=frameT;
-      if(scheduler?.playing&&judge){
-        const result=judge.onGesture();
-        if(result==='perfect1'||result==='perfectBonus'){flashOverlay(255,200,80);}
-        else if(result==='hit1')      {flashOverlay(80,216,154);}
-        else if(result==='bonus'){flashOverlay(80,160,255);}
-        if(result!=='ignored')updateScoreUI();
+      const intervalMs=frameT-lastIctusMs;
+      if(intervalMs>200&&intervalMs<3000){
+        const rawBpm=60000/intervalMs;
+        const clamped=Math.min(Math.max(rawBpm,bpm0*0.4),bpm0*2.5);
+        if(smoothedBpm===0){
+          smoothedBpm=clamped;
+        }else{
+          smoothedBpm=SMOOTHING*smoothedBpm+(1-SMOOTHING)*clamped;
+        }
+        if(scheduler)scheduler.setSpeed(smoothedBpm/bpm0);
+        bpmBuffer.push(clamped);
+        if(bpmBuffer.length>BPM_BUFFER_SIZE)bpmBuffer.shift();
+        avgBpm=bpmBuffer.reduce((a,b)=>a+b,0)/bpmBuffer.length;
       }
+      lastIctusMs=frameT;
     }
     state.wasAboveHigh=false;
     state.peakSpeed=0;
@@ -302,10 +284,22 @@ function detectBeat(speed, frameT, state) {
 }
 
 
+function isRightFist(lm){
+  function d(a,b){
+    const dx=a.x-b.x, dy=a.y-b.y;
+    return Math.sqrt(dx*dx+dy*dy);
+  }
+  return d(lm[0],lm[8])  < d(lm[0],lm[5])  &&
+         d(lm[0],lm[12]) < d(lm[0],lm[9])  &&
+         d(lm[0],lm[16]) < d(lm[0],lm[13]) &&
+         d(lm[0],lm[20]) < d(lm[0],lm[17]);
+}
+
+
 // ═══════════════════════════════════════════
 //  PAUSE / RESUME
 // ═══════════════════════════════════════════
-function togglePause(){
+async function togglePause(){
   if(!scheduler)return;
   isPaused=!isPaused;
   _hudDirty=true;
@@ -314,23 +308,12 @@ function togglePause(){
     scheduler.pause();
     if(btn){btn.textContent='▶';btn.title='Resume';}
   }else{
-    if(audioCtx?.state==='suspended')audioCtx.resume();
+    await Tone.start();
     scheduler.resume(0.1);
     if(btn){btn.textContent='⏸';btn.title='Pause';}
   }
 }
 
-
-// ═══════════════════════════════════════════
-//  PLAYBACK SPEED
-// ═══════════════════════════════════════════
-function onSpeedChange(val){
-  const factor=Number(val)/100;
-  if(scheduler)scheduler.setSpeed(factor);
-  if(judge)judge.setBpm(bpm0*factor);
-  document.getElementById('speedVal').textContent=factor.toFixed(2)+'×';
-  document.getElementById('fileBpm').textContent=(bpm0*factor).toFixed(1);
-}
 
 
 // ═══════════════════════════════════════════
@@ -345,39 +328,12 @@ function schedulerLoop(){
     if(scheduler.a){
       elProgressFill.style.width=(scheduler.progress*100)+'%';
     }
+
   }
   requestAnimationFrame(schedulerLoop);
 }
 requestAnimationFrame(schedulerLoop);
 
-
-// ═══════════════════════════════════════════
-//  FALLBACK BEEP  (Web Audio synth tone)
-//  Used when Soundfont CDN is unavailable.
-// ═══════════════════════════════════════════
-function makeFallbackInstrument(ac){
-  return {
-    play(noteName, when, opts){
-      try{
-        const NOTE_MAP={C:0,'C#':1,D:2,'D#':3,E:4,F:5,'F#':6,G:7,'G#':8,A:9,'A#':10,B:11};
-        const m=noteName.match(/^([A-G]#?)(-?\d+)$/);
-        if(!m)return null;
-        const semi=NOTE_MAP[m[1]]+(parseInt(m[2])+1)*12;
-        const freq=440*Math.pow(2,(semi-69)/12);
-        const osc=ac.createOscillator();
-        const gain=ac.createGain();
-        osc.type='triangle';
-        osc.frequency.value=freq;
-        const g=(opts?.gain||0.6)*0.4;
-        gain.gain.setValueAtTime(g, when);
-        gain.gain.exponentialRampToValueAtTime(0.0001, when+(opts?.duration||0.4));
-        osc.connect(gain);gain.connect(ac.destination);
-        osc.start(when);osc.stop(when+(opts?.duration||0.4)+0.05);
-        return osc;
-      }catch(e){return null;}
-    }
-  };
-}
 
 
 // ═══════════════════════════════════════════
@@ -392,7 +348,7 @@ async function startCountdown(){
   nm.textContent='♩';await new Promise(r=>setTimeout(r,600));
   ov.style.display='none';
   countdownActive=false;
-  if(audioCtx&&audioCtx.state==='suspended') audioCtx.resume();
+  await Tone.start();
   scheduler.start(0.25);
   const pb=document.getElementById('pauseBtn');
   if(pb){pb.disabled=false;pb.textContent='⏸';pb.title='暫停';}
@@ -409,46 +365,43 @@ function onStartOverlayClick(){
   document.getElementById('startOverlay').style.display='none';
   startCountdown();
 }
-function showEndScreen(){
-  if(!judge)return;
-  document.getElementById('endScore').textContent  =judge.score;
-  document.getElementById('endB1').textContent     =judge.b1Hits;
-  document.getElementById('endBonus').textContent  =judge.bonusHits;
-  document.getElementById('endPerfect').textContent=judge.perfectHits;
-  document.getElementById('endOverlay').style.display='flex';
-  isPaused=false;
-  _hudDirty=true;
-  const pb=document.getElementById('pauseBtn');
-  if(pb){pb.disabled=true;pb.textContent='⏸';pb.title='暫停';}
-}
 function _resetPlayState(){
   handState.left ={poseBuf:[],wasAboveHigh:false,wasAboveHighTimestamp:0,peakSpeed:0,trail:[]};
   handState.right={poseBuf:[],wasAboveHigh:false,wasAboveHighTimestamp:0,peakSpeed:0,trail:[]};
-  lastBeatMs=0;autoPaused=false;crossPauseSinceMs=0;countdownActive=false;bothStillSinceMs=0;
+  lastBeatMs=0;autoPaused=false;crossPaused=false;crossPauseSinceMs=0;countdownActive=false;
+  fistSinceMs=0;fistPaused=false;fistResumeCooldownMs=0;handFrameCounter=0;
+  pinchSinceMs=0;fermataPaused=false;
+  smoothedBpm=0;lastIctusMs=0;bpmBuffer=[];avgBpm=0;
+  gainScale=1.0;
+  if(scheduler)scheduler.gainScale=1.0;
   _prevBeatMs=0;_nextBeatMs=0;_currentBeatNum=1;_nextBeatNum=1;
   _flareMs=0;_nextFlareAtMs=0;_flareBeatNum=0;
   isPaused=false;
   _hudDirty=true;
 }
 function restartGame(){
-  document.getElementById('endOverlay').style.display='none';
   document.getElementById('startOverlay').style.display='none';
   if(scheduler)scheduler.reset();
-  if(judge){judge.reset();updateScoreUI();}
   _resetPlayState();
   const pb=document.getElementById('pauseBtn');
   if(pb){pb.disabled=true;pb.textContent='⏸';pb.title='暫停';}
   waitForStartClick();
 }
 function finishGame(){
-  document.getElementById('endOverlay').style.display='none';
   if(scheduler)scheduler.reset();
-  if(judge){judge.reset();updateScoreUI();}
   _resetPlayState();
-  analyzer=null;scheduler=null;judge=null;
+  analyzer=null;scheduler=null;
   const pb=document.getElementById('pauseBtn');
   if(pb){pb.disabled=true;pb.textContent='⏸';pb.title='暫停';}
   document.getElementById('uploadOverlay').style.display='flex';
+}
+function showSongEnd(){
+  if(scheduler)scheduler.pause();
+  _resetPlayState();
+  document.getElementById('uploadOverlay').querySelector('p').textContent='演奏結束！載入新的 MIDI 繼續指揮。';
+  document.getElementById('uploadOverlay').style.display='flex';
+  const pb=document.getElementById('pauseBtn');
+  if(pb){pb.disabled=true;pb.textContent='⏸';pb.title='暫停';}
 }
 
 
@@ -458,54 +411,55 @@ function finishGame(){
 document.getElementById('fileInput').addEventListener('change',async(e)=>{
   const file=e.target.files[0];if(!file)return;
   document.getElementById('startOverlay').style.display='none';
-  document.getElementById('endOverlay').style.display='none';
   document.getElementById('fileName').textContent=file.name;
 
   try{
     analyzer=new MidiAnalyzer(await file.arrayBuffer());
     bpm0=analyzer.initialBpm;
-    document.getElementById('fileBpm').textContent=bpm0.toFixed(1);
+    const _fb410=document.getElementById('fileBpm'); if(_fb410) _fb410.textContent=bpm0.toFixed(1);
 
     currentTS=analyzer.timeSig;
     const COMPOUND_MAP={6:2,9:3,12:4};
     currentTS[0]=COMPOUND_MAP[currentTS[0]]??currentTS[0];
     if(![[2,4],[3,4],[4,4]].some(t=>t[0]===currentTS[0]&&t[1]===currentTS[1]))currentTS=[4,4];
-    document.getElementById('tsLabel').textContent=`${currentTS[0]} / ${currentTS[1]}`;
 
-    if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)();
-    if(audioCtx.state==='suspended') await audioCtx.resume();
+    const sampler=new Tone.Sampler({
+      urls:{
+        A0:'A0.mp3',C1:'C1.mp3','D#1':'Ds1.mp3','F#1':'Fs1.mp3',
+        A1:'A1.mp3',C2:'C2.mp3','D#2':'Ds2.mp3','F#2':'Fs2.mp3',
+        A2:'A2.mp3',C3:'C3.mp3','D#3':'Ds3.mp3','F#3':'Fs3.mp3',
+        A3:'A3.mp3',C4:'C4.mp3','D#4':'Ds4.mp3','F#4':'Fs4.mp3',
+        A4:'A4.mp3',C5:'C5.mp3','D#5':'Ds5.mp3','F#5':'Fs5.mp3',
+        A5:'A5.mp3',C6:'C6.mp3','D#6':'Ds6.mp3','F#6':'Fs6.mp3',
+        A6:'A6.mp3',C7:'C7.mp3','D#7':'Ds7.mp3','F#7':'Fs7.mp3',
+        A7:'A7.mp3',C8:'C8.mp3'
+      },
+      release:1,
+      baseUrl:'https://tonejs.github.io/audio/salamander/',
+    }).toDestination();
+    instrument=sampler;
 
-    // Use fallback beep immediately so scheduler can play right away.
-    // Soundfont loads in the background and swaps in when ready.
-    if(!instrument) instrument=makeFallbackInstrument(audioCtx);
+    await Tone.loaded();
 
-    judge=new BeatJudge(bpm0);
     _prevBeatMs=0;_nextBeatMs=0;_currentBeatNum=1;_nextBeatNum=1;
     handState.left ={poseBuf:[],wasAboveHigh:false,wasAboveHighTimestamp:0,peakSpeed:0,trail:[]};
     handState.right={poseBuf:[],wasAboveHigh:false,wasAboveHighTimestamp:0,peakSpeed:0,trail:[]};
-    lastBeatMs=0;autoPaused=false;
+    lastBeatMs=0;autoPaused=false;smoothedBpm=0;lastIctusMs=0;
 
-    scheduler=new AutoScheduler(analyzer,audioCtx,instrument,(beatPerfMs,beatNum)=>{
-      judge.addBeat(beatPerfMs,beatNum);
+    scheduler=new AutoScheduler(analyzer,instrument,(beatPerfMs,beatNum)=>{
       _hudDirty=true;
       _prevBeatMs=_nextBeatMs;
-      _currentBeatNum=_nextBeatNum;
       _nextBeatMs=beatPerfMs;
       _nextBeatNum=beatNum;
       _nextFlareAtMs=beatPerfMs;
       _flareBeatNum=beatNum;
-    },showEndScreen);
+    },()=>{showSongEnd();});
     scheduler.setTS(currentTS);
 
     document.getElementById('uploadOverlay').style.display='none';
     isPaused=false;
     const pb=document.getElementById('pauseBtn');
     if(pb){pb.disabled=true;pb.textContent='⏸';pb.title='暫停';}
-    // Reset speed slider to 100% for new file
-    const ss=document.getElementById('speedSlider');
-    if(ss){ss.value=100;document.getElementById('speedVal').textContent='1.00×';}
-    updateScoreUI();
-
     // Show start overlay — countdown begins only on click
     waitForStartClick();
 
@@ -518,14 +472,6 @@ document.getElementById('fileInput').addEventListener('change',async(e)=>{
       }
     }
 
-    // Load Soundfont in background — swap into scheduler when ready
-    Soundfont.instrument(audioCtx,'acoustic_grand_piano',{soundfont:'FluidR3_GM',format:'mp3'})
-      .then(sf=>{
-        instrument=sf;
-        if(scheduler) scheduler.inst=sf;
-      })
-      .catch(err=>console.warn('Soundfont unavailable, using synth fallback:',err));
-
   }catch(err){
     console.error('Error loading MIDI file:',err);
     alert('MIDI 載入失敗：'+err.message+'\n\n請按 F12 開啟瀏覽器主控台查看詳細資訊。');
@@ -533,18 +479,6 @@ document.getElementById('fileInput').addEventListener('change',async(e)=>{
   }
 });
 
-
-// ═══════════════════════════════════════════
-//  SCORE UI
-// ═══════════════════════════════════════════
-function updateScoreUI(){
-  if(!judge)return;
-  document.getElementById('scoreVal').textContent  =judge.score;
-  document.getElementById('streakVal').textContent =judge.streak;
-  document.getElementById('b1HitsVal').textContent  =judge.b1Hits;
-  document.getElementById('bonusVal').textContent   =judge.bonusHits;
-  document.getElementById('perfHitsVal').textContent=judge.perfectHits;
-}
 
 function flashOverlay(r,g,b){
   const el=document.getElementById('beatFlash');
@@ -575,7 +509,7 @@ function drawMetronomeHUD() {
   const gold  = light ? '#6a7480' : '#b0b8c4';
 
   const HUD_W = elder ? 300 : 220;
-  const HUD_H = elder ? 130 : 100;
+  const HUD_H = elder ? 190 : 150;
   const bx = (W - HUD_W) / 2, by = 8;
 
   ctx.save();
@@ -664,12 +598,73 @@ function drawMetronomeHUD() {
   ctx.fillText(isIdle ? '—' : String(_nextBeatNum), W / 2, by + HUD_H / 2 + (elder ? 8 : 5));
   ctx.shadowBlur = 0;
 
-  // BPM label — upper-right of backdrop
-  const speedFactor = Number(elSpeedSlider.value) / 100;
+  if (fistPaused) {
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.font = `${elder ? 11 : 9}px DM Mono, monospace`;
+    ctx.fillStyle = light ? 'rgba(200,60,60,0.85)' : 'rgba(224,82,82,0.9)';
+    ctx.fillText('✕ CUT-OFF', W / 2, by + HUD_H / 2 + (elder ? 52 : 40));
+  }
+
+  // BPM panels — upper-right of backdrop
   ctx.textAlign = 'right'; ctx.textBaseline = 'top';
-  ctx.font = `${elder ? 13 : 10}px DM Mono, monospace`;
-  ctx.fillStyle = light ? 'rgba(100,90,70,0.55)' : 'rgba(180,180,180,0.5)';
-  ctx.fillText(isIdle ? '— BPM' : (bpm0 * speedFactor).toFixed(0) + ' BPM', bx + HUD_W - 10, by + 10);
+  const _x  = bx + HUD_W - 10;
+  const _lh = elder ? 12 : 9;
+  const _vh = elder ? 16 : 12;
+  const _rg = elder ? 6  : 4;
+
+  // Row 1 — SCORE (smallest, dimmest)
+  let _y = by + 10;
+  ctx.font = `${elder ? 9 : 7}px DM Mono, monospace`;
+  ctx.fillStyle = light ? 'rgba(100,90,70,0.28)' : 'rgba(180,180,180,0.25)';
+  ctx.fillText('SCORE', _x, _y);
+  _y += _lh;
+  ctx.font = `${elder ? 11 : 9}px DM Mono, monospace`;
+  ctx.fillStyle = light ? 'rgba(100,90,70,0.40)' : 'rgba(180,180,180,0.38)';
+  ctx.fillText(bpm0.toFixed(0) + ' BPM', _x, _y);
+  _y += _vh + _rg;
+
+  // Row 2 — LIVE (largest, brightest)
+  ctx.font = `${elder ? 10 : 8}px DM Mono, monospace`;
+  ctx.fillStyle = light ? 'rgba(100,90,70,0.48)' : 'rgba(180,180,180,0.45)';
+  ctx.fillText('LIVE', _x, _y);
+  _y += _lh;
+  ctx.font = `${elder ? 14 : 12}px DM Mono, monospace`;
+  ctx.fillStyle = light ? 'rgba(100,90,70,0.78)' : 'rgba(180,180,180,0.80)';
+  ctx.fillText(smoothedBpm > 0 ? smoothedBpm.toFixed(0) + ' BPM' : '— BPM', _x, _y);
+  _y += _vh + _rg;
+
+  // Row 3 — AVG (medium size, medium brightness)
+  ctx.font = `${elder ? 9 : 7}px DM Mono, monospace`;
+  ctx.fillStyle = light ? 'rgba(100,90,70,0.35)' : 'rgba(180,180,180,0.32)';
+  ctx.fillText('AVG', _x, _y);
+  _y += _lh;
+  ctx.font = `${elder ? 12 : 10}px DM Mono, monospace`;
+  ctx.fillStyle = light ? 'rgba(100,90,70,0.58)' : 'rgba(180,180,180,0.58)';
+  ctx.fillText(avgBpm > 0 ? avgBpm.toFixed(0) + ' BPM' : '— BPM', _x, _y);
+
+  const tsText=currentTS?currentTS[0]+'/'+currentTS[1]:'4/4';
+  ctx.textAlign='center';ctx.textBaseline='bottom';
+  ctx.font=`${elder?11:9}px DM Mono, monospace`;
+  ctx.fillStyle=light?'rgba(100,90,70,0.35)':'rgba(180,180,180,0.32)';
+  ctx.fillText(tsText,W/2,by+HUD_H-6);
+
+  // Dynamics bar — left side of backdrop
+  const _barX  = bx + 8;
+  const _barW  = elder ? 8 : 6;
+  const _barTY = by + 8;
+  const _barH  = HUD_H - 16;
+  ctx.fillStyle = light ? 'rgba(100,90,70,0.08)' : 'rgba(180,180,180,0.08)';
+  ctx.fillRect(_barX, _barTY, _barW, _barH);
+  const _gainFrac = Math.min(1, Math.max(0, (gainScale - GAIN_MIN) / (GAIN_MAX - GAIN_MIN)));
+  const _fillH = _gainFrac * _barH;
+  if(_fillH > 1){
+    ctx.fillStyle = light ? 'rgba(100,90,70,0.50)' : 'rgba(180,180,180,0.55)';
+    ctx.fillRect(_barX, _barTY + _barH - _fillH, _barW, _fillH);
+  }
+  const _tickFrac = (1.0 - GAIN_MIN) / (GAIN_MAX - GAIN_MIN);
+  const _tickY = _barTY + _barH - _tickFrac * _barH;
+  ctx.fillStyle = light ? 'rgba(100,90,70,0.35)' : 'rgba(180,180,180,0.40)';
+  ctx.fillRect(_barX - 2, _tickY - 1, _barW + 4, 2);
 
   // Cross-pause gesture progress ring
   if (crossPauseSinceMs > 0) {
@@ -701,7 +696,7 @@ function drawMetronomeHUD() {
 
 // Dedicated 60fps loop for the HUD — decoupled from MediaPipe
 function hudLoop() {
-  const needsAnim = scheduler?.playing || (performance.now() - _flareMs < 200) || crossPauseSinceMs > 0;
+  const needsAnim = scheduler?.playing || (performance.now() - _flareMs < 200) || crossPauseSinceMs > 0 || fistPaused;
   if (_hudDirty || needsAnim) { drawMetronomeHUD(); _hudDirty = false; }
   requestAnimationFrame(hudLoop);
 }
@@ -712,204 +707,363 @@ requestAnimationFrame(hudLoop);
 //  MEDIAPIPE CAMERA
 // ═══════════════════════════════════════════
 const TRAIL_STYLES=Array.from({length:18},(_,i)=>`rgba(176,184,196,${((i+1)/18)*0.7})`);
-const _SCORE_COLOR={perfect1:'255,200,80',perfectBonus:'255,200,80',hit1:'80,216,154',bonus:'80,160,255'};
-const _SCORE_TEXT ={perfect1:'完美！',   perfectBonus:'完美！',   hit1:'✓ 第一拍',  bonus:'✦ 加分拍'};
-const _SCORE_DELTA={perfect1:'+7',       perfectBonus:'+2',       hit1:'+5',        bonus:'+1'};
 
-function startCamera(){
+
+async function startCamera(){
   cameraStarted=true;
   const video=document.getElementById('videoEl');
   const canvas=elCamCanvas;
   const ctx=canvas.getContext('2d');
   let frameTimestamp=0;
 
-  // Fixed display resolution — camera captures 320×240 but canvas stays at 640×480
-  canvas.width=640;canvas.height=480;
+  canvas.width=1280;canvas.height=720;
 
-  // Last-known hand state shared between detection callback and draw loop.
-  // wx/wy are stable pixel-coord copies set in onResults so drawFrame never reads
-  // a lm reference that MediaPipe may have replaced with a newer frame's data.
   const known={
     left: {lm:null,speed:0,wx:0,wy:0},
     right:{lm:null,speed:0,wx:0,wy:0}
   };
 
-  const pose=new Pose({
-    locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}`
-  });
-  pose.setOptions({
-    modelComplexity:0,
-    smoothLandmarks:true,
-    minDetectionConfidence:0.5,
-    minTrackingConfidence:0.5
-  });
-
   const SIDES=['left','right'];
-  // Pose landmark indices: left wrist=15, right wrist=16 (person's own left/right)
   const WRIST_IDX={left:15,right:16};
 
-  // Detection-only callback — no drawing here
-  pose.onResults(results=>{
-    const W=canvas.width,H=canvas.height;
-    const lm=results.poseLandmarks;
+  try{
+    const vision=await FilesetResolver.forVisionTasks(
+      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
+    );
 
-    // Update known state, trails, and beat detection
-    for(const side of SIDES){
-      const pt=lm&&lm[WRIST_IDX[side]];
-      const state=handState[side];
-      const k=known[side];
-      if(!pt||pt.visibility<0.3){k.lm=null;state.trail=[];continue;}
-      k.lm=pt;
-      // Mirrored pixel position — matches the flipped camera feed in drawFrame
-      k.wx=(1-pt.x)*W; k.wy=pt.y*H;
-      state.trail.push([k.wx,k.wy]);
-      if(state.trail.length>18)state.trail.shift();
-      state.poseBuf.push({x:pt.x,y:pt.y,t:frameTimestamp});
-      if(state.poseBuf.length>POS_BUF_SIZE)state.poseBuf.shift();
-      k.speed=handSpeed(state);
-      detectBeat(k.speed,frameTimestamp,state);
+    let poseLandmarker;
+    try{
+      poseLandmarker=await PoseLandmarker.createFromOptions(vision,{
+        baseOptions:{
+          modelAssetPath:'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
+          delegate:'GPU'
+        },
+        runningMode:'VIDEO',
+        numPoses:1,
+        minPoseDetectionConfidence:0.5,
+        minPosePresenceConfidence:0.5,
+        minTrackingConfidence:0.5
+      });
+    }catch(gpuErr){
+      console.warn('Pose GPU delegate failed, falling back to CPU:',gpuErr);
+      poseLandmarker=await PoseLandmarker.createFromOptions(vision,{
+        baseOptions:{
+          modelAssetPath:'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
+          delegate:'CPU'
+        },
+        runningMode:'VIDEO',
+        numPoses:1,
+        minPoseDetectionConfidence:0.5,
+        minPosePresenceConfidence:0.5,
+        minTrackingConfidence:0.5
+      });
     }
 
-    // Auto-pause/resume using bilateral stillness detection
-    const lVis=known.left.lm!==null,  rVis=known.right.lm!==null;
-    const now=performance.now();
-    const STILL_THR=0.0003;
-    const STILL_MS=scheduler ? Math.max(800, scheduler.beatS * 2000) : 800;
-    const bothStill=lVis&&rVis&&known.left.speed<STILL_THR&&known.right.speed<STILL_THR;
-    if(!countdownActive&&scheduler&&scheduler.playing&&!isPaused&&!autoPaused){
-      if(bothStill){
-        if(bothStillSinceMs===0)bothStillSinceMs=now;
-        if(now-bothStillSinceMs>=STILL_MS){
-          bothStillSinceMs=0;
-          autoPaused=true;scheduler.pause();_hudDirty=true;
+    let handLandmarker;
+    try{
+      handLandmarker=await HandLandmarker.createFromOptions(vision,{
+        baseOptions:{
+          modelAssetPath:'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
+          delegate:'GPU'
+        },
+        runningMode:'VIDEO',
+        numHands:2,
+        minHandDetectionConfidence:0.5,
+        minHandPresenceConfidence:0.5,
+        minTrackingConfidence:0.5
+      });
+    }catch(gpuErr){
+      console.warn('Hand GPU delegate failed, falling back to CPU:',gpuErr);
+      handLandmarker=await HandLandmarker.createFromOptions(vision,{
+        baseOptions:{
+          modelAssetPath:'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
+          delegate:'CPU'
+        },
+        runningMode:'VIDEO',
+        numHands:2,
+        minHandDetectionConfidence:0.5,
+        minHandPresenceConfidence:0.5,
+        minTrackingConfidence:0.5
+      });
+    }
+
+    let lastHandResult = {landmarks:[],handedness:[]};
+    let fermataNote = null;
+    let fermataOscillators = [];
+
+    function isPinch(lm){
+      const dx=lm[4].x-lm[8].x, dy=lm[4].y-lm[8].y;
+      const pinchDist=Math.sqrt(dx*dx+dy*dy);
+      const hx=lm[0].x-lm[9].x, hy=lm[0].y-lm[9].y;
+      const handSize=Math.sqrt(hx*hx+hy*hy);
+      return handSize>0 && (pinchDist/handSize)<0.25;
+    }
+
+    const stream=await navigator.mediaDevices.getUserMedia({
+      video:{width:1280,height:720,facingMode:'user'}
+    });
+    video.srcObject=stream;
+    await new Promise(resolve=>video.onloadedmetadata=resolve);
+    video.play();
+
+    function detect(){
+      if(video.readyState<2){requestAnimationFrame(detect);return;}
+      const W=canvas.width,H=canvas.height;
+      const timestamp=performance.now();
+      frameTimestamp=timestamp;
+
+      // ── POSE ──
+      const poseResult=poseLandmarker.detectForVideo(video,timestamp);
+      const lm=poseResult.landmarks&&poseResult.landmarks[0]?poseResult.landmarks[0]:null;
+
+      // Landmark indices are from the subject's perspective (lm[15]=person's left wrist,
+      // lm[16]=person's right wrist). Only the right wrist drives beat detection per spec
+      // ("右手 — 指揮節拍"). Left wrist still tracked for trail and speed-bar display.
+      // Dynamics use only the left hand (lm[19]/lm[11]/lm[23]) per spec.
+      // k.wx = (1-pt.x)*W mirrors x from raw camera space to match the flipped display.
+      for(const side of SIDES){
+        const pt=lm&&lm[WRIST_IDX[side]];
+        const state=handState[side];
+        const k=known[side];
+        if(!pt||pt.visibility<0.3){k.lm=null;state.trail=[];continue;}
+        k.lm=pt;
+        k.wx=(1-pt.x)*W; k.wy=pt.y*H;
+        state.trail.push([k.wx,k.wy]);
+        if(state.trail.length>18)state.trail.shift();
+        state.poseBuf.push({x:pt.x,y:pt.y,t:frameTimestamp});
+        if(state.poseBuf.length>POS_BUF_SIZE)state.poseBuf.shift();
+        k.speed=handSpeed(state);
+        if(side==='right') detectBeat(k.speed,frameTimestamp,state);
+      }
+
+      const lFinger=lm&&lm[19];
+      if(lFinger&&lFinger.visibility>0.3&&known.left.lm){
+        known.left.wx=(1-lFinger.x)*W;
+        known.left.wy=lFinger.y*H;
+      }
+      const lShoulder=lm&&lm[11];
+      const lHip=lm&&lm[23];
+      if(lFinger&&lShoulder&&lHip&&lFinger.visibility>0.3&&lShoulder.visibility>0.3&&lHip.visibility>0.3){
+        if(lFinger.y<lShoulder.y){
+          gainScale=Math.min(GAIN_MAX,gainScale+GAIN_RATE);
+          if(scheduler)scheduler.gainScale=gainScale;
+        }else if(lFinger.y>lHip.y){
+          gainScale=Math.max(GAIN_MIN,gainScale-GAIN_RATE);
+          if(scheduler)scheduler.gainScale=gainScale;
         }
-      }else{
-        bothStillSinceMs=0;
       }
-    }else if(!bothStill){
-      bothStillSinceMs=0;
-    }
-    if(autoPaused&&!isPaused&&scheduler){
-      if((lVis&&known.left.speed>=STILL_THR)||(rVis&&known.right.speed>=STILL_THR)){
-        autoPaused=false;bothStillSinceMs=0;crossPauseSinceMs=0;
-        if(audioCtx?.state==='suspended')audioCtx.resume();
-        scheduler.resume(0.1);_hudDirty=true;
-      }
-    }
+      known.left.shoulderY=lShoulder&&lShoulder.visibility>0.3?lShoulder.y:null;
+      known.left.hipY=lHip&&lHip.visibility>0.3?lHip.y:null;
+      known.left.fingerVisible=!!(lFinger&&lFinger.visibility>0.3);
 
-    // Pause gesture: both wrists above eye level, sustained 400ms
-    if(!countdownActive&&scheduler&&scheduler.playing&&!isPaused&&!autoPaused){
-      const el=lm&&lm[3], er=lm&&lm[4];
-      const wl=known.left.lm,  wr=known.right.lm;
-      const crossGesture=el&&er&&wl&&wr
-        &&wl.y<el.y&&wr.y<er.y;  // both wrists above respective eye landmarks
-      if(crossGesture){
-        if(crossPauseSinceMs===0)crossPauseSinceMs=now;
-        if(now-crossPauseSinceMs>=400){
+      const now=performance.now();
+
+      if(!countdownActive&&scheduler&&scheduler.playing&&!isPaused&&!autoPaused){
+        const el=lm&&lm[3], er=lm&&lm[4];
+        const wl=known.left.lm, wr=known.right.lm;
+        const crossGesture=el&&er&&wl&&wr&&wl.y<el.y&&wr.y<er.y;
+        if(crossGesture){
+          if(crossPauseSinceMs===0)crossPauseSinceMs=now;
+          if(now-crossPauseSinceMs>=150){
+            crossPauseSinceMs=0;
+            autoPaused=true;crossPaused=true;scheduler.pause();_hudDirty=true;
+          }
+        }else{
           crossPauseSinceMs=0;
-          autoPaused=true;scheduler.pause();_hudDirty=true;
         }
-      }else{
+      }else if(!autoPaused&&!isPaused){
         crossPauseSinceMs=0;
       }
-    }else if(!autoPaused&&!isPaused){
-      crossPauseSinceMs=0;
-    }
-  });
-
-  // Draw loop — runs every rAF frame, reads last-known state
-  function drawFrame(){
-    const W=canvas.width,H=canvas.height;
-    ctx.clearRect(0,0,W,H);
-
-    // Mirrored camera feed (scales 320×240 video up to 640×480 canvas)
-    ctx.save();ctx.translate(W,0);ctx.scale(-1,1);
-    ctx.drawImage(video,0,0,W,H);
-    ctx.restore();
-
-    const elder=isElderMode();
-    for(const side of SIDES){
-      const k=known[side];
-      if(!k.lm)continue;
-      const wx=k.wx, wy=k.wy;        // stable copies, never read k.lm[0] here
-      const trail=handState[side].trail;
-
-      // Hard reset before each hand — prevents stale path from previous hand
-      // bleeding in when this hand's trail has 0 or 1 point (loop body never fires).
-      ctx.beginPath();
-      for(let i=1;i<trail.length;i++){
-        ctx.strokeStyle=TRAIL_STYLES[i-1];
-        ctx.lineWidth=(i/trail.length)*4.5;
-        ctx.beginPath();ctx.moveTo(trail[i-1][0],trail[i-1][1]);
-        ctx.lineTo(trail[i][0],trail[i][1]);ctx.stroke();
-      }
-
-      // Wrist dot: green = moving, orange = pre-pause warning (both still, 500ms window)
-      const prePause=bothStillSinceMs>0&&!autoPaused;
-      const dotColor=prePause?'#ff9040':'#50d89a';
-      ctx.fillStyle=dotColor;ctx.shadowColor=dotColor;ctx.shadowBlur=elder?20:12;
-      ctx.beginPath();ctx.arc(wx,wy,elder?11:6,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
-
-      // Speed bar
-      const highThr=cachedHighThr;
-      const BAR_W=60,BAR_H=5;
-      const bx=wx-BAR_W/2,by=wy-22;
-      ctx.beginPath();ctx.roundRect(bx,by,BAR_W,BAR_H,3);
-      ctx.fillStyle='rgba(255,255,255,0.1)';ctx.fill();
-      const fill=Math.min(k.speed/highThr,1)*BAR_W;
-      ctx.beginPath();ctx.roundRect(bx,by,fill,BAR_H,3);
-      ctx.fillStyle=k.speed>=highThr?'#ff9040':'#b0b8c4';ctx.fill();
-      ctx.beginPath();ctx.moveTo(bx+BAR_W,by-2);ctx.lineTo(bx+BAR_W,by+BAR_H+2);
-      ctx.strokeStyle='rgba(255,255,255,0.25)';ctx.lineWidth=1;ctx.stroke();
-    }
-
-    // Auto-pause overlay
-    if(autoPaused){
-      ctx.save();
-      ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.font=`bold ${elder?52:36}px Cormorant Garamond, serif`;
-      ctx.fillStyle='rgba(220,220,220,0.88)';
-      ctx.shadowColor='rgba(0,0,0,0.55)';ctx.shadowBlur=12;
-      ctx.fillText('停止',W/2,H/2);
-      ctx.restore();
-    }
-
-    // Floating score HUD
-    if(judge?.lastResult){
-      const age=performance.now()-judge.lastResultTime;
-      if(age<800){
-        const r=judge.lastResult;
-        if(r!=='ignored'){
-          const elder2=isElderMode();
-          const alpha=Math.max(0,1-age/800);
-          const c=_SCORE_COLOR[r]||'180,180,180';
-          const floatY=H/2-14-age*0.045;
-          ctx.save();ctx.textAlign='center';
-          ctx.font=`bold ${elder2?38:25}px DM Mono, monospace`;
-          ctx.fillStyle=`rgba(${c},${alpha})`;
-          ctx.shadowColor=`rgba(${c},${alpha*0.5})`;ctx.shadowBlur=elder2?22:16;
-          ctx.fillText(_SCORE_TEXT[r],W/2,floatY);
-          ctx.font=`${elder2?22:15}px DM Mono, monospace`;ctx.shadowBlur=0;
-          ctx.fillStyle=`rgba(${c},${alpha*0.85})`;
-          ctx.fillText(_SCORE_DELTA[r],W/2,floatY+(elder2?36:25));
-          ctx.restore();
+      if(autoPaused&&!isPaused&&!fistPaused&&scheduler){
+        const el=lm&&lm[3], er=lm&&lm[4];
+        const wl=known.left.lm, wr=known.right.lm;
+        const resumeGesture=el&&er&&wl&&wr&&wl.y>el.y&&wr.y>er.y;
+        if(resumeGesture){
+          autoPaused=false;crossPaused=false;
+          Tone.start();
+          scheduler.resume(0.1);_hudDirty=true;
         }
       }
-    }
-    requestAnimationFrame(drawFrame);
-  }
-  requestAnimationFrame(drawFrame);
 
-  // Initialize fully before starting the camera — eliminates the race condition where
-  // early onFrame calls arrive before the WASM model has finished downloading.
-  const camera=new Camera(video,{
-    onFrame:()=>{
-      frameTimestamp=performance.now();
-      pose.send({image:video}).catch(err=>console.error('pose.send error:',err));
-    },
-    width:480,height:360
-  });
-  pose.initialize().then(()=>camera.start()).catch(()=>alert('需要相機權限。請允許存取後重新整理頁面。'));
+      // ── HANDS (fist cut-off) ──
+      let rightLm=null,leftLm=null;
+      if(handLandmarker&&!countdownActive){
+        handFrameCounter++;
+        if(handFrameCounter%3===0){
+          try{
+            lastHandResult=handLandmarker.detectForVideo(video,frameTimestamp);
+          }catch{
+            lastHandResult={landmarks:[],handedness:[]};
+          }
+        }
+        const handResult=lastHandResult;
+        if(handResult.landmarks&&handResult.landmarks.length>0){
+          for(let i=0;i<handResult.handedness.length;i++){
+            if(handResult.handedness[i][0].categoryName==='Right'){
+              rightLm=handResult.landmarks[i];
+            }else if(handResult.handedness[i][0].categoryName==='Left'){
+              leftLm=handResult.landmarks[i];
+            }
+          }
+        }
+        if(leftLm&&isRightFist(leftLm)){
+          if(fistSinceMs===0)fistSinceMs=now;
+          fistResumeCooldownMs=0;
+          if(!fistPaused&&!isPaused&&scheduler&&scheduler.playing&&now-fistSinceMs>=FIST_HOLD_MS){
+            scheduler.pause();scheduler._stopAll();
+            autoPaused=true;fistPaused=true;_hudDirty=true;
+          }
+        }else{
+          fistSinceMs=0;
+          if(fistPaused&&!isPaused&&scheduler){
+            if(fistResumeCooldownMs===0)fistResumeCooldownMs=now;
+            if(now-fistResumeCooldownMs>=FIST_COOLDOWN){
+              fistPaused=false;autoPaused=false;fistResumeCooldownMs=0;
+              Tone.start();
+              scheduler.resume(0.1);_hudDirty=true;
+            }
+          }
+        }
+        if(!fistPaused&&fistSinceMs===0&&leftLm){
+          if(isPinch(leftLm)){
+            if(pinchSinceMs===0)pinchSinceMs=now;
+            if(now-pinchSinceMs>=150&&!fermataPaused){
+              fermataPaused=true;
+              if(scheduler)scheduler.pause();
+              fermataNote=null;
+              fermataOscillators=[];
+              if(scheduler?.lastChord?.size>0){
+                scheduler.lastChord.forEach(note=>{
+                  const osc=new Tone.Oscillator({
+                    frequency:Tone.Frequency(note).toFrequency(),
+                    type:'sine'
+                  }).toDestination();
+                  osc.volume.value=-40;
+                  osc.start(Tone.now());
+                  osc.volume.rampTo(-12,0.2);
+                  fermataOscillators.push(osc);
+                });
+              }
+              _hudDirty=true;
+            }
+          }else{
+            if(fermataPaused){
+              fermataPaused=false;pinchSinceMs=0;
+              fermataOscillators.forEach(osc=>{
+                osc.volume.rampTo(-60,0.2);
+                setTimeout(()=>{
+                  try{osc.stop();osc.dispose();}catch(e){}
+                },250);
+              });
+              fermataOscillators=[];
+              fermataNote=null;
+              Tone.start().then(()=>{if(scheduler)scheduler.resume(0.1);});
+              _hudDirty=true;
+            }else{
+              pinchSinceMs=0;
+            }
+          }
+        }
+      }
+
+      // ── DRAW ──
+      ctx.clearRect(0,0,W,H);
+      ctx.save();ctx.translate(W,0);ctx.scale(-1,1);
+      ctx.drawImage(video,0,0,W,H);
+      ctx.restore();
+
+      const elder=isElderMode();
+      for(const side of SIDES){
+        const k=known[side];
+        if(!k.lm)continue;
+        const wx=k.wx,wy=k.wy;
+        const trail=handState[side].trail;
+
+        ctx.beginPath();
+        for(let i=1;i<trail.length;i++){
+          ctx.strokeStyle=TRAIL_STYLES[i-1];
+          ctx.lineWidth=(i/trail.length)*4.5;
+          ctx.beginPath();ctx.moveTo(trail[i-1][0],trail[i-1][1]);
+          ctx.lineTo(trail[i][0],trail[i][1]);ctx.stroke();
+        }
+
+        const dotColor='#50d89a';
+        ctx.fillStyle=dotColor;ctx.shadowColor=dotColor;ctx.shadowBlur=elder?20:12;
+        ctx.beginPath();ctx.arc(wx,wy,elder?11:6,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+
+        if(side==='left'&&leftLm){
+          const HAND_BONES=[[0,1,2,3,4],[0,5,6,7,8],[0,9,10,11,12],[0,13,14,15,16],[0,17,18,19,20]];
+          ctx.strokeStyle='rgba(176,184,196,0.6)';
+          ctx.lineWidth=1.5;
+          ctx.lineCap='round';ctx.lineJoin='round';
+          for(const chain of HAND_BONES){
+            ctx.beginPath();
+            for(let j=0;j<chain.length;j++){
+              const p=leftLm[chain[j]];
+              const sx=(1-p.x)*W,sy=p.y*H;
+              if(j===0)ctx.moveTo(sx,sy);else ctx.lineTo(sx,sy);
+            }
+            ctx.stroke();
+          }
+          ctx.fillStyle='rgba(176,184,196,0.85)';
+          for(let j=0;j<21;j++){
+            const p=leftLm[j];
+            ctx.beginPath();ctx.arc((1-p.x)*W,p.y*H,3,0,Math.PI*2);ctx.fill();
+          }
+          ctx.lineCap='butt';ctx.lineJoin='miter';
+        }
+
+        const highThr=cachedHighThr;
+        const BAR_W=60,BAR_H=5;
+        const bx=wx-BAR_W/2,by=wy-22;
+        ctx.beginPath();ctx.roundRect(bx,by,BAR_W,BAR_H,3);
+        ctx.fillStyle='rgba(255,255,255,0.1)';ctx.fill();
+        const fill=Math.min(k.speed/highThr,1)*BAR_W;
+        ctx.beginPath();ctx.roundRect(bx,by,fill,BAR_H,3);
+        ctx.fillStyle=k.speed>=highThr?'#ff9040':'#b0b8c4';ctx.fill();
+        ctx.beginPath();ctx.moveTo(bx+BAR_W,by-2);ctx.lineTo(bx+BAR_W,by+BAR_H+2);
+        ctx.strokeStyle='rgba(255,255,255,0.25)';ctx.lineWidth=1;ctx.stroke();
+      }
+
+      if(known.left.fingerVisible&&known.left.shoulderY!==null){
+        ctx.lineWidth=1;
+        ctx.strokeStyle='rgba(176,184,196,0.4)';
+        ctx.beginPath();ctx.moveTo(0,known.left.shoulderY*H);ctx.lineTo(W,known.left.shoulderY*H);ctx.stroke();
+      }
+      if(known.left.fingerVisible&&known.left.hipY!==null){
+        ctx.lineWidth=1;
+        ctx.strokeStyle='rgba(176,184,196,0.2)';
+        ctx.beginPath();ctx.moveTo(0,known.left.hipY*H);ctx.lineTo(W,known.left.hipY*H);ctx.stroke();
+      }
+
+      if(autoPaused&&!fermataPaused){
+        ctx.save();
+        ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.font=`bold ${elder?52:36}px Cormorant Garamond, serif`;
+        ctx.fillStyle='rgba(220,220,220,0.88)';
+        ctx.shadowColor='rgba(0,0,0,0.55)';ctx.shadowBlur=12;
+        ctx.fillText('停止',W/2,H/2);
+        ctx.restore();
+      }
+      if(fermataPaused){
+        ctx.save();
+        ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.font=`bold ${elder?52:36}px Cormorant Garamond, serif`;
+        ctx.fillStyle='rgba(80,160,255,0.88)';
+        ctx.shadowColor='rgba(80,160,255,0.55)';ctx.shadowBlur=12;
+        ctx.fillText('𝄐 延音',W/2,H/2);
+        ctx.shadowBlur=0;
+        ctx.restore();
+      }
+
+      requestAnimationFrame(detect);
+    }
+    requestAnimationFrame(detect);
+
+  }catch(err){
+    console.error('Camera init error:',err);
+    alert('相機無法啟動：'+err.message);
+  }
 }
 
 

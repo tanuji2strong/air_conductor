@@ -20,11 +20,50 @@
 
 <header>
   <h1>空氣指揮家</h1>
-  <span class="tagline">跟上節拍 · 累積分數</span>
   <div class="header-right">
     <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="切換亮色／暗色模式">☀</button>
     <button class="theme-btn pause-btn" id="pauseBtn" onclick="togglePause()" title="暫停" disabled>⏸</button>
     <button class="elder-btn" id="elderBtn" onclick="toggleElderMode()" title="切換長者模式">長者模式</button>
+    <div class="help-wrap" id="helpWrap">
+      <button class="help-btn" id="helpBtn" onclick="toggleHelp()">說明 ▾</button>
+      <div class="help-dropdown" id="helpDropdown">
+        <div class="help-section">
+          <div class="help-title">右手 — 指揮節拍</div>
+          <div class="help-body">揮動右手設定速度。揮得越快，音樂越快；越慢，音樂越慢。停止揮動，維持最後速度。</div>
+        </div>
+        <div class="help-section">
+          <div class="help-title">左手 — 控制音量</div>
+          <div class="help-body">食指舉高過肩膀 → 音量增加<br>食指降至腰部以下 → 音量減少<br>手停在中間 → 音量維持</div>
+        </div>
+        <div class="help-section">
+          <div class="help-title">手勢</div>
+          <div class="help-body">右手握拳 → 截止（立即停止）<br>右手捏指 → 延音（音符自然延長）<br>雙手舉過眼睛 → 暫停<br>雙手放下 → 繼續</div>
+        </div>
+        <div class="help-section">
+          <div class="help-title">靈敏度</div>
+          <div class="help-body">調整偵測手臂動作所需的速度</div>
+          <div class="sens-row">
+            <input type="range" id="sensSlider" min="1" max="10" value="1" oninput="onSensChange(this.value)">
+            <span class="sens-val" id="sensVal">1</span>
+          </div>
+        </div>
+        <div class="help-section">
+          <div class="help-title">鍵盤快捷鍵</div>
+          <div class="help-body">
+            <kbd>Space</kbd> 暫停 / 繼續<br>
+            <kbd>R</kbd> 重新開始歌曲<br>
+            <kbd>M</kbd> 靜音 / 取消靜音<br>
+            <kbd>+</kbd> / <kbd>−</kbd> 調整靈敏度<br>
+            <kbd>L</kbd> 切換亮色模式
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="fontsize-btns">
+      <button class="fontsize-btn active" data-size="small" onclick="setFontSize('small')">小</button>
+      <button class="fontsize-btn" data-size="medium" onclick="setFontSize('medium')">中</button>
+      <button class="fontsize-btn" data-size="large" onclick="setFontSize('large')">大</button>
+    </div>
     <button class="upload-btn" onclick="document.getElementById('fileInput').click()">載入 MIDI</button>
     <input type="file" id="fileInput" accept=".mid,.midi">
   </div>
@@ -49,119 +88,34 @@
       <p>點擊畫面，開始 10 秒倒數<br>準備好跟上節拍！</p>
     </div>
 
-    <div class="end-overlay" id="endOverlay">
-      <h2>太棒了！</h2>
-      <div class="end-stat-label">總分</div>
-      <div class="end-score-big" id="endScore">0</div>
-      <div class="end-chips">
-        <span class="chip chip-b1">♩ 第一拍 &nbsp;<span id="endB1">0</span></span>
-        <span class="chip chip-bon">✦ 加分拍 &nbsp;<span id="endBonus">0</span></span>
-        <span class="chip chip-perf">★ 完美 &nbsp;<span id="endPerfect">0</span></span>
-      </div>
-      <div class="end-btns">
-        <button class="end-btn end-btn-restart" onclick="restartGame()">重新開始</button>
-        <button class="end-btn end-btn-finish" onclick="finishGame()">結束遊戲</button>
-      </div>
-    </div>
-
     <div class="upload-overlay" id="uploadOverlay">
       <h2>空氣指揮家</h2>
-      <p>載入 MIDI 檔案——音樂會自動播放。<br>
-         用手臂跟上節拍來得分。<br><br>
-         第一拍同步 &nbsp;<span style="color:var(--green)">+5</span><br>
-         其他拍為加分拍 &nbsp;<span style="color:var(--green)">+1</span><br>
-
-         失誤不扣分
-      </p>
+      <p>載入 MIDI 檔案——音樂會自動播放。</p>
       <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
         載入 MIDI 檔案
       </button>
     </div>
   </div>
 
-  <!-- Sidebar -->
-  <div class="sidebar">
-
-    <div class="panel panel-collapsible">
-      <div class="panel-label">操作說明</div>
-      <div class="kbd-hints">
-        <kbd>R</kbd> 重新開始歌曲與分數<br>
-        <kbd>Space</kbd> 暫停 / 繼續<br>
-        <kbd>M</kbd> 靜音 / 取消靜音<br>
-        <kbd>+</kbd> / <kbd>−</kbd> 調整靈敏度<br>
-        <kbd>L</kbd> 切換亮色模式
-      </div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-label">檔案</div>
-      <div class="file-name" id="fileName">—</div>
-      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-label">分數</div>
-      <div class="score-big" id="scoreVal">0</div>
-      <div class="score-row">
-        <div class="score-item">
-          <label>連擊</label>
-          <div class="val" id="streakVal">0</div>
-        </div>
-        <div class="score-item">
-          <label>BPM</label>
-          <div class="val" id="fileBpm">—</div>
-        </div>
-      </div>
-      <div class="score-chips">
-        <span class="chip chip-b1"   title="第一拍命中次數 (+5)">♩ <span id="b1HitsVal">0</span></span>
-        <span class="chip chip-bon"  title="其他拍命中次數 (+1)">✦ <span id="bonusVal">0</span></span>
-        <span class="chip chip-perf" title="完美命中次數">★ <span id="perfHitsVal">0</span></span>
-      </div>
-    </div>
-
-    <div class="panel panel-ts">
-      <div class="panel-label">拍號</div>
-      <div class="ts-label" id="tsLabel">4 / 4</div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-label">播放速度</div>
-      <div class="sens-row">
-        <label>慢 ← → 快</label>
-        <input type="range" id="speedSlider" min="50" max="150" value="100"
-               oninput="onSpeedChange(this.value)">
-        <span class="sens-val" id="speedVal">1.00×</span>
-      </div>
-      <div class="speed-ticks">
-        <span>0.5×</span><span>0.75×</span><span>1×</span><span>1.25×</span><span>1.5×</span>
-      </div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-label">靈敏度</div>
-      <div class="sens-row">
-        <label>低 ← → 高</label>
-        <input type="range" id="sensSlider" min="1" max="10" value="5"
-               oninput="onSensChange(this.value)">
-        <span class="sens-val" id="sensVal">5</span>
-      </div>
-    </div>
-
-    <div class="panel panel-fontsize">
-      <div class="panel-label">字體大小</div>
-      <div class="fontsize-btns">
-        <button class="fontsize-btn active" data-size="small"  onclick="setFontSize('small')">小</button>
-        <button class="fontsize-btn"        data-size="medium" onclick="setFontSize('medium')">中</button>
-        <button class="fontsize-btn"        data-size="large"  onclick="setFontSize('large')">大</button>
-      </div>
-    </div>
-
-  </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/soundfont-player@0.12.0/dist/soundfont-player.min.js"></script>
+<footer class="app-footer">
+  <span class="footer-filename" id="fileName">—</span>
+  <div class="footer-progress">
+    <div class="footer-fill" id="progressFill"></div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.mjs"
+  crossorigin="anonymous" type="module"></script>
+<script type="module">
+  import { FilesetResolver, PoseLandmarker, HandLandmarker }
+    from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.mjs";
+  window.FilesetResolver = FilesetResolver;
+  window.PoseLandmarker = PoseLandmarker;
+  window.HandLandmarker = HandLandmarker;
+</script>
+<script src="https://unpkg.com/tone"></script>
 <script src="app.js"></script>
 <script>
   function setFontSize(size) {
