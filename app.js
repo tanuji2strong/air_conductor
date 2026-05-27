@@ -64,7 +64,7 @@ class AutoScheduler {
     this.onBeatScheduled=onBeatScheduled; this.onSongEnd=onSongEnd||null;
     this.bpm=analyzer.initialBpm; this.beatS=60/this.bpm;
     this.ts=[4,4]; this.playing=false; this.muted=false;
-    this._AHEAD=0.15; this.gainScale=1.0; this.lastChord=new Set();
+    this._AHEAD=0.15; this.gainScale=1.0; this.lastChord=new Map();
     this.currentTick=0; this.eventIndex=0;
     this.nextBeatAudioTime=0; this._beatNum=1; this._songEndScheduled=false;
   }
@@ -81,7 +81,7 @@ class AutoScheduler {
   setSpeed(factor){
     this.beatS=(60/this.bpm)/factor;
   }
-  reset(){this.playing=false;this.currentTick=0;this.eventIndex=0;this._beatNum=1;this._songEndScheduled=false;this._stopAll();this.lastChord=new Set();}
+  reset(){this.playing=false;this.currentTick=0;this.eventIndex=0;this._beatNum=1;this._songEndScheduled=false;this._stopAll();this.lastChord=new Map();}
   _stopAll(){if(this.inst)this.inst.releaseAll();}
   _midiName(n){return['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'][n%12]+(Math.floor(n/12)-1);}
   _play(ev,when){
@@ -89,7 +89,7 @@ class AutoScheduler {
     if(ev.type==='note_on'&&ev.velocity>0){
       const noteName=this._midiName(ev.note);
       this.inst.triggerAttackRelease(noteName,1.5,when,(ev.velocity/127)*0.9*this.gainScale);
-      this.lastChord.add(noteName);
+      this.lastChord.set(noteName, when);
     }
   }
   update(){
@@ -105,7 +105,6 @@ class AutoScheduler {
     }
   }
   _scheduleBeat(startTime){
-    this.lastChord.clear();
     const s=this.currentTick,e=s+this.a.tpb,evs=this.a.events;
     while(this.eventIndex<evs.length&&evs[this.eventIndex].absTick<s)this.eventIndex++;
     let i=this.eventIndex;
@@ -150,7 +149,7 @@ let crossPauseSinceMs = 0;
 let countdownActive = false;
 let smoothedBpm = 0;
 let lastIctusMs = 0;
-const SMOOTHING = 0.30;
+const SMOOTHING = 0.65;
 const BPM_BUFFER_SIZE = 6;
 let bpmBuffer = [];
 let avgBpm = 0;
@@ -160,6 +159,7 @@ const GAIN_MIN = 0.1;
 const GAIN_MAX = 2;
 let fistPaused = false, fistSinceMs = 0, fistResumeCooldownMs = 0;
 let pinchSinceMs = 0, fermataPaused = false;
+let fermataGain = null;
 const FIST_HOLD_MS = 300;
 const FIST_COOLDOWN = 800;
 let handFrameCounter = 0;
@@ -234,7 +234,7 @@ function handSpeed(state) {
   let sum=0,n=0;
   for(let i=start+1;i<len;i++){
     const dt=buf[i].t-buf[i-1].t;
-    if(dt>0){
+    if(dt>0&&dt<100){
       const dx=buf[i].x-buf[i-1].x;
       const dy=buf[i].y-buf[i-1].y;
       sum+=Math.sqrt(dx*dx+dy*dy)/dt;n++;
@@ -417,6 +417,7 @@ document.getElementById('fileInput').addEventListener('change',async(e)=>{
     currentTS[0]=COMPOUND_MAP[currentTS[0]]??currentTS[0];
     if(![[2,4],[3,4],[4,4]].some(t=>t[0]===currentTS[0]&&t[1]===currentTS[1]))currentTS=[4,4];
 
+    if(instrument)instrument.disconnect();
     const sampler=new Tone.Sampler({
       urls:{
         A0:'A0.mp3',C1:'C1.mp3','D#1':'Ds1.mp3','F#1':'Fs1.mp3',
@@ -430,8 +431,11 @@ document.getElementById('fileInput').addEventListener('change',async(e)=>{
       },
       release:1,
       baseUrl:'https://tonejs.github.io/audio/salamander/',
-    }).toDestination();
+    });
+    if(fermataGain)fermataGain.dispose();
+    fermataGain = new Tone.Volume(0).toDestination();
     instrument=sampler;
+    instrument.connect(fermataGain);
 
     await Tone.loaded();
 
@@ -483,10 +487,9 @@ function drawMetronomeHUD() {
   const hudCanvas = elHudCanvas;
   const camCanvas = elCamCanvas;
 
-  const W = 1280;
-  const H = 720;
-  if (hudCanvas.width !== W)  hudCanvas.width  = W;
-  if (hudCanvas.height !== H) hudCanvas.height = H;
+  const W = hudCanvas.width  || 1280;
+  const H = hudCanvas.height || 720;
+  const scale = Math.min(W / 1280, 0.75);
 
   const ctx = hudCanvas.getContext('2d');
   ctx.clearRect(0, 0, W, H);
@@ -495,18 +498,18 @@ function drawMetronomeHUD() {
   const elder = isElderMode();
   const gold  = light ? '#6a7480' : '#b0b8c4';
 
-  const HUD_W = elder ? 300 : 220;
-  const HUD_H = elder ? 190 : 150;
-  const bx = (W - HUD_W) / 2, by = 8;
+  const HUD_W = (elder ? 300 : 220) * scale;
+  const HUD_H = (elder ? 190 : 150) * scale;
+  const bx = (W - HUD_W) / 2, by = 8 * scale;
 
   ctx.save();
 
   // Backdrop
   ctx.fillStyle = light ? 'rgba(244,241,235,0.92)' : 'rgba(7,7,15,0.86)';
-  ctx.beginPath(); ctx.roundRect(bx, by, HUD_W, HUD_H, 14); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(bx, by, HUD_W, HUD_H, 14 * scale); ctx.fill();
   ctx.strokeStyle = light ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.07)';
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.roundRect(bx, by, HUD_W, HUD_H, 14); ctx.stroke();
+  ctx.lineWidth = scale;
+  ctx.beginPath(); ctx.roundRect(bx, by, HUD_W, HUD_H, 14 * scale); ctx.stroke();
 
   const isIdle = !scheduler;
   const isB1   = _nextBeatNum === 1;
@@ -533,8 +536,8 @@ function drawMetronomeHUD() {
   if (!isIdle) {
     const arcCx = W / 2;
     const arcCy = by + HUD_H / 2;
-    const arcR  = elder ? 68 : 52;
-    const arcLW = elder ? 3 : 2;
+    const arcR  = (elder ? 68 : 52) * scale;
+    const arcLW = (elder ? 3 : 2) * scale;
     const flareIsB1 = _flareBeatNum === 1;
 
     // Dim track ring
@@ -552,7 +555,7 @@ function drawMetronomeHUD() {
       ctx.strokeStyle = isB1
         ? (light ? `rgba(106,116,128,${alpha})`       : `rgba(176,184,196,${alpha})`)
         : (light ? `rgba(106,116,128,${alpha * 0.5})` : `rgba(176,184,196,${alpha * 0.5})`);
-      ctx.lineWidth = arcLW + flareT * 1.5;
+      ctx.lineWidth = arcLW + flareT * 1.5 * scale;
       ctx.lineCap = 'round';
       ctx.stroke();
       ctx.lineCap = 'butt';
@@ -560,7 +563,7 @@ function drawMetronomeHUD() {
 
     // Flare ring: expands and fades on beat arrival
     if (flareT > 0) {
-      const flareR = arcR + (1 - flareT) * (elder ? 20 : 14);
+      const flareR = arcR + (1 - flareT) * (elder ? 20 : 14) * scale;
       ctx.beginPath();
       ctx.arc(arcCx, arcCy, flareR, 0, 2 * Math.PI);
       ctx.strokeStyle = flareIsB1
@@ -573,66 +576,66 @@ function drawMetronomeHUD() {
 
   // Beat number (centered in backdrop)
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.font = `bold ${elder ? 62 : 38}px DM Mono, monospace`;
+  ctx.font = `bold ${(elder ? 62 : 38) * scale}px DM Mono, monospace`;
   if (!isIdle && isB1) {
     ctx.fillStyle   = gold;
     ctx.shadowColor = gold;
-    ctx.shadowBlur  = urgency > 0 ? (elder ? 10 : 6) + urgency * (elder ? 20 : 14) : (elder ? 10 : 6);
+    ctx.shadowBlur  = urgency > 0 ? ((elder ? 10 : 6) + urgency * (elder ? 20 : 14)) * scale : (elder ? 10 : 6) * scale;
   } else {
     ctx.fillStyle  = light ? 'rgba(80,76,68,0.55)' : 'rgba(200,200,200,0.45)';
     ctx.shadowBlur = 0;
   }
-  ctx.fillText(isIdle ? '—' : String(_nextBeatNum), W / 2, by + HUD_H / 2 + (elder ? 8 : 5));
+  ctx.fillText(isIdle ? '—' : String(_nextBeatNum), W / 2, by + HUD_H / 2 + (elder ? 8 : 5) * scale);
   ctx.shadowBlur = 0;
 
   // BPM panels — upper-right of backdrop
   ctx.textAlign = 'right'; ctx.textBaseline = 'top';
-  const _x  = bx + HUD_W - 10;
-  const _lh = elder ? 12 : 9;
-  const _vh = elder ? 16 : 12;
-  const _rg = elder ? 6  : 4;
+  const _x  = bx + HUD_W - 10 * scale;
+  const _lh = (elder ? 12 : 9) * scale;
+  const _vh = (elder ? 16 : 12) * scale;
+  const _rg = (elder ? 6  : 4) * scale;
 
   // Row 1 — SCORE (smallest, dimmest)
-  let _y = by + 10;
-  ctx.font = `${elder ? 9 : 7}px DM Mono, monospace`;
+  let _y = by + 10 * scale;
+  ctx.font = `${(elder ? 9 : 7) * scale}px DM Mono, monospace`;
   ctx.fillStyle = light ? 'rgba(100,90,70,0.28)' : 'rgba(180,180,180,0.25)';
   ctx.fillText('SCORE', _x, _y);
   _y += _lh;
-  ctx.font = `${elder ? 11 : 9}px DM Mono, monospace`;
+  ctx.font = `${(elder ? 11 : 9) * scale}px DM Mono, monospace`;
   ctx.fillStyle = light ? 'rgba(100,90,70,0.40)' : 'rgba(180,180,180,0.38)';
   ctx.fillText(bpm0.toFixed(0) + ' BPM', _x, _y);
   _y += _vh + _rg;
 
   // Row 2 — LIVE (largest, brightest)
-  ctx.font = `${elder ? 10 : 8}px DM Mono, monospace`;
+  ctx.font = `${(elder ? 10 : 8) * scale}px DM Mono, monospace`;
   ctx.fillStyle = light ? 'rgba(100,90,70,0.48)' : 'rgba(180,180,180,0.45)';
   ctx.fillText('LIVE', _x, _y);
   _y += _lh;
-  ctx.font = `${elder ? 14 : 12}px DM Mono, monospace`;
+  ctx.font = `${(elder ? 14 : 12) * scale}px DM Mono, monospace`;
   ctx.fillStyle = light ? 'rgba(100,90,70,0.78)' : 'rgba(180,180,180,0.80)';
   ctx.fillText(smoothedBpm > 0 ? smoothedBpm.toFixed(0) + ' BPM' : '— BPM', _x, _y);
   _y += _vh + _rg;
 
   // Row 3 — AVG (medium size, medium brightness)
-  ctx.font = `${elder ? 9 : 7}px DM Mono, monospace`;
+  ctx.font = `${(elder ? 9 : 7) * scale}px DM Mono, monospace`;
   ctx.fillStyle = light ? 'rgba(100,90,70,0.35)' : 'rgba(180,180,180,0.32)';
   ctx.fillText('AVG', _x, _y);
   _y += _lh;
-  ctx.font = `${elder ? 12 : 10}px DM Mono, monospace`;
+  ctx.font = `${(elder ? 12 : 10) * scale}px DM Mono, monospace`;
   ctx.fillStyle = light ? 'rgba(100,90,70,0.58)' : 'rgba(180,180,180,0.58)';
   ctx.fillText(avgBpm > 0 ? avgBpm.toFixed(0) + ' BPM' : '— BPM', _x, _y);
 
   const tsText=currentTS?currentTS[0]+'/'+currentTS[1]:'4/4';
   ctx.textAlign='center';ctx.textBaseline='bottom';
-  ctx.font=`${elder?11:9}px DM Mono, monospace`;
+  ctx.font=`${(elder?11:9)*scale}px DM Mono, monospace`;
   ctx.fillStyle=light?'rgba(100,90,70,0.35)':'rgba(180,180,180,0.32)';
-  ctx.fillText(tsText,W/2,by+HUD_H-6);
+  ctx.fillText(tsText,W/2,by+HUD_H-6*scale);
 
   // Dynamics bar — left side of backdrop
-  const _barX  = bx + 8;
-  const _barW  = elder ? 8 : 6;
-  const _barTY = by + 8;
-  const _barH  = HUD_H - 16;
+  const _barX  = bx + 8 * scale;
+  const _barW  = (elder ? 8 : 6) * scale;
+  const _barTY = by + 8 * scale;
+  const _barH  = HUD_H - 16 * scale;
   ctx.fillStyle = light ? 'rgba(100,90,70,0.08)' : 'rgba(180,180,180,0.08)';
   ctx.fillRect(_barX, _barTY, _barW, _barH);
   const _gainFrac = Math.min(1, Math.max(0, (gainScale - GAIN_MIN) / (GAIN_MAX - GAIN_MIN)));
@@ -644,15 +647,15 @@ function drawMetronomeHUD() {
   const _tickFrac = (1.0 - GAIN_MIN) / (GAIN_MAX - GAIN_MIN);
   const _tickY = _barTY + _barH - _tickFrac * _barH;
   ctx.fillStyle = light ? 'rgba(100,90,70,0.35)' : 'rgba(180,180,180,0.40)';
-  ctx.fillRect(_barX - 2, _tickY - 1, _barW + 4, 2);
+  ctx.fillRect(_barX - 2 * scale, _tickY - scale, _barW + 4 * scale, 2 * scale);
 
   // Cross-pause gesture progress ring
   if (crossPauseSinceMs > 0) {
     const prog  = Math.min(1, (now - crossPauseSinceMs) / 400);
     const indCx = W / 2;
-    const indCy = by + HUD_H + (elder ? 28 : 20);
-    const indR  = elder ? 16 : 12;
-    const indLW = elder ? 2.5 : 2;
+    const indCy = by + HUD_H + (elder ? 28 : 20) * scale;
+    const indR  = (elder ? 16 : 12) * scale;
+    const indLW = (elder ? 2.5 : 2) * scale;
 
     ctx.beginPath();
     ctx.arc(indCx, indCy, indR, 0, 2 * Math.PI);
@@ -696,7 +699,7 @@ async function startCamera(){
   const ctx=canvas.getContext('2d');
   let frameTimestamp=0;
 
-  canvas.width=1280;canvas.height=720;
+
 
   const known={
     left: {lm:null,speed:0,wx:0,wy:0},
@@ -769,6 +772,7 @@ async function startCamera(){
 
     let lastHandResult = {landmarks:[],handedness:[]};
     let fermataSynth = null;
+    let fermataActiveNotes = null;
 
     function isPinch(lm){
       const dx=lm[4].x-lm[8].x, dy=lm[4].y-lm[8].y;
@@ -779,11 +783,15 @@ async function startCamera(){
     }
 
     const stream=await navigator.mediaDevices.getUserMedia({
-      video:{width:1280,height:720,facingMode:'user'}
+      video:{facingMode:'user'}
     });
     video.srcObject=stream;
     await new Promise(resolve=>video.onloadedmetadata=resolve);
     video.play();
+    canvas.width  = video.videoWidth  || 1280;
+    canvas.height = video.videoHeight || 720;
+    elHudCanvas.width  = canvas.width;
+    elHudCanvas.height = canvas.height;
 
     function detect(){
       if(video.readyState<2){requestAnimationFrame(detect);return;}
@@ -909,9 +917,15 @@ async function startCamera(){
             if(now-pinchSinceMs>=20&&!fermataPaused){
               fermataPaused=true;
               if(scheduler)scheduler.pause();
-              if(scheduler?.lastChord?.size > 0){
-                const notes = Array.from(scheduler.lastChord);
-                scheduler.inst.triggerAttack(notes, Tone.now() + 0.05);
+              const audioNow = Tone.now();
+              const NOTE_SUSTAIN = scheduler ? Math.max(0.6, scheduler.beatS * 1.2) : 0.6;
+              fermataActiveNotes = Array.from(scheduler.lastChord.entries())
+                .filter(([, t]) => t <= audioNow && audioNow - t < NOTE_SUSTAIN)
+                .map(([n]) => n);
+              if(fermataActiveNotes.length > 0){
+                fermataGain.volume.value = -40;
+                scheduler.inst.triggerAttack(fermataActiveNotes, audioNow + 0.02, 0.01);
+                fermataGain.volume.rampTo(0, 0.08);
                 fermataSynth = true;
               }
               _hudDirty=true;
@@ -920,13 +934,17 @@ async function startCamera(){
             if(fermataPaused){
               fermataPaused=false;pinchSinceMs=0;
               if(fermataSynth && scheduler?.inst){
-                const notes = Array.from(scheduler.lastChord?.size > 0 ? scheduler.lastChord : []);
-                if(notes.length > 0){
-                  scheduler.inst.triggerRelease(notes, Tone.now());
-                }
-                fermataSynth = null;
+                fermataGain.volume.rampTo(-40, 0.05);
+                const _rel=fermataActiveNotes?.length>0?[...fermataActiveNotes]:null;
+                setTimeout(()=>{
+                  if(_rel)scheduler.inst.triggerRelease(_rel,Tone.now());
+                  if(fermataGain)fermataGain.volume.value=0;
+                  Tone.start().then(()=>{if(scheduler)scheduler.resume(0.1);});
+                },60);
+                fermataSynth=null;fermataActiveNotes=null;
+              }else{
+                Tone.start().then(()=>{if(scheduler)scheduler.resume(0.1);});
               }
-              Tone.start().then(()=>{if(scheduler)scheduler.resume(0.1);});
               _hudDirty=true;
             }else{
               pinchSinceMs=0;

@@ -74,7 +74,7 @@
   <div class="camera-wrap">
     <video id="videoEl" playsinline></video>
     <canvas id="canvasEl"></canvas>
-    <canvas id="hudCanvas" width="1280" height="720"></canvas>
+    <canvas id="hudCanvas"></canvas>
     <div class="beat-flash" id="beatFlash"></div>
 
     <div class="countdown-overlay" id="countdownOverlay">
@@ -114,11 +114,11 @@
   </div>
 </footer>
 
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.mjs"
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/vision_bundle.mjs"
   crossorigin="anonymous" type="module"></script>
 <script type="module">
   import { FilesetResolver, PoseLandmarker, HandLandmarker }
-    from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.mjs";
+    from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/vision_bundle.mjs";
   window.FilesetResolver = FilesetResolver;
   window.PoseLandmarker = PoseLandmarker;
   window.HandLandmarker = HandLandmarker;

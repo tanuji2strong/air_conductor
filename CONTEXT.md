@@ -29,7 +29,7 @@ All three loops are started unconditionally at page load and run forever, fully 
 **`hudLoop()`**
 - Calls `drawMetronomeHUD()` when `_hudDirty` is true or when animation is needed (scheduler playing, flare within 200ms, cross-pause ring filling).
 - Owns: the `#hudCanvas` overlay — beat number, BPM panels, dynamics bar, anticipation arc, flare ring, cross-pause ring.
-- `#hudCanvas` has `width="1280" height="720"` set in HTML so it is sized before the camera starts. `drawMetronomeHUD()` uses hardcoded `W=1280, H=720`.
+- `#hudCanvas` dimensions are set by JS after camera init: `canvas.width = video.videoWidth || 1280` / `canvas.height = video.videoHeight || 720`, then `elHudCanvas.width = canvas.width` / `elHudCanvas.height = canvas.height`. `drawMetronomeHUD()` reads `hudCanvas.width` and `hudCanvas.height` dynamically and derives `scale = Math.min(W / 1280, 0.75)` to proportionally scale all internal layout constants.
 - Never draws to the camera canvas.
 
 **`detect()` (inside `startCamera()`)**
@@ -42,11 +42,11 @@ All three loops are started unconditionally at page load and run forever, fully 
 ## 3. Audio Pipeline
 
 1. **Tone.js** (`https://unpkg.com/tone`) is the sole audio library. There is no `AudioContext` created directly by the app and no fallback synthesiser.
-2. **Sampler**: On each file load, a `Tone.Sampler` is created with the full Salamander Grand Piano sample set loaded from `https://tonejs.github.io/audio/salamander/`. The sampler is connected to `Tone.Destination` immediately.
+2. **Sampler**: On each file load, the previous sampler (if any) is `.disconnect()`d from `fermataGain`. A new `Tone.Sampler` is created with the full Salamander Grand Piano sample set from `https://tonejs.github.io/audio/salamander/`. The existing `fermataGain` node is `.dispose()`d and replaced with a fresh `new Tone.Volume(0).toDestination()`. The new sampler is then connected to it unconditionally. Audio always routes: sampler → `fermataGain` → `Tone.Destination`. `fermataGain` is a module-level `Tone.Volume | null`, initialised `null` and recreated on every file load in the upload handler — never in `startCamera()`.
 3. **Loading**: `await Tone.loaded()` blocks the file-load handler until all sample buffers are fetched. The start overlay is not shown until loading completes.
 4. **AudioContext unlock**: `await Tone.start()` is called in `startCountdown()` (after the user has clicked the start overlay) and in all gesture resume paths. This satisfies the browser autoplay policy.
 5. **Scheduling**: `AutoScheduler.update()` runs every rAF tick via `schedulerLoop`. It calls `_scheduleBeat()` for each upcoming beat within a 0.15-second lookahead window. Notes are scheduled via `this.inst.triggerAttackRelease(noteName, 1.5, when, velocity)`. The Tone.js audio clock (`Tone.now()`) is used for all scheduling; `performance.now()` is used only for gesture timing.
-6. **Chord tracking**: `AutoScheduler.lastChord` is a `Set<string>` that is cleared at the start of each `_scheduleBeat()` call and populated with every note name that fires a `note_on` in that beat window. Used by the fermata pinch gesture to sustain the last chord via `triggerAttack`.
+6. **Chord tracking**: `AutoScheduler.lastChord` is a `Map<string, number>` where the key is the note name and the value is the Tone.js audio clock time (`when`) at which the note was scheduled. Populated in `_play()` via `this.lastChord.set(noteName, when)`. Not cleared between beats — accumulates across the lifetime of the song so that recently fired notes remain queryable. Cleared to a new empty `Map` only in `reset()`. Used by the fermata pinch gesture: at pinch time, entries are filtered to `when <= Tone.now()` (notes that have already fired) to avoid sustaining notes still in the lookahead window.
 7. **Stop**: `AutoScheduler._stopAll()` calls `this.inst.releaseAll()`, which triggers the release envelope on all active sampler voices.
 8. **Song end**: `_scheduleBeat()` sets `playing = false` when `currentTick >= totalTicks`. `showSongEnd()` fires 2 seconds later via `setTimeout`. The song end overlay (`#songEndOverlay`) is shown; it offers 再播一次 (play again via `restartGame()`) and 載入新曲 (show upload overlay).
 9. **Note name format**: `_midiName(n)` produces scientific pitch notation with sharps only: `"C4"`, `"D#4"`, `"A#3"` etc. Compatible with Tone.js input.
@@ -92,16 +92,17 @@ All PoseLandmarker coordinates are in normalized [0, 1] space from the **subject
 - **Pinch test** (`isPinch(lm)`): normalised thumb-tip to index-tip distance < 0.25. Scale-invariant: raw distance `d(lm[4], lm[8])` divided by hand size `d(lm[0], lm[9])` (wrist to middle MCP).
 - **Hold timer**: `pinchSinceMs`; fires after 20ms of continuous gesture
 - **Guard**: only active when `!fistPaused && fistSinceMs === 0 && leftLm` — blocked both when a fist is confirmed (`fistPaused`) and while a fist is forming (`fistSinceMs > 0`).
-- **Effect on enter**:
+- **Effect on enter** (volume crossfade):
   1. Sets `fermataPaused = true`
   2. Calls `scheduler.pause()`
-  3. If `scheduler.lastChord` is non-empty, calls `scheduler.inst.triggerAttack(notes, Tone.now() + 0.05)` to sustain the chord indefinitely. Sets `fermataSynth = true` as a boolean flag.
-- **Effect on release**:
+  3. Builds `fermataActiveNotes` by filtering `scheduler.lastChord.entries()` to entries where `when <= audioNow && audioNow - when < NOTE_SUSTAIN` (`NOTE_SUSTAIN = scheduler ? Math.max(0.6, scheduler.beatS * 1.2) : 0.6` seconds). Captures notes that have already fired but are still within their natural sustain window.
+  4. If notes found: instantly sets `fermataGain.volume.value = -40` (mute), calls `scheduler.inst.triggerAttack(notes, audioNow + 0.02, 0.01)` (very quiet retrigger 20 ms out), then `fermataGain.volume.rampTo(0, 0.08)` (fade in over 80 ms, masking the retrigger transient). Sets `fermataSynth = true`.
+- **Effect on release** (crossfade out + resume):
   1. Sets `fermataPaused = false`, resets `pinchSinceMs = 0`
-  2. If `fermataSynth` is true and `scheduler.inst` exists, calls `scheduler.inst.triggerRelease(notes, Tone.now())` to release the sustained notes. Sets `fermataSynth = null`.
-  3. Chains `Tone.start().then(() => scheduler.resume(0.1))`
+  2. If `fermataSynth` is true: calls `fermataGain.volume.rampTo(-40, 0.05)` (fade out over 50 ms). After a 60 ms `setTimeout`: calls `scheduler.inst.triggerRelease(capturedNotes, Tone.now())`, resets `fermataGain.volume.value = 0` for normal playback, then chains `Tone.start().then(() => scheduler.resume(0.1))`. The captured notes array (`_rel`) is a spread copy made before the closure, so later mutations to `fermataActiveNotes` cannot affect it. Sets `fermataSynth = null` and `fermataActiveNotes = null` immediately (outside the timeout).
+  3. If `fermataSynth` is false (no notes found at enter): chains `Tone.start().then(() => scheduler.resume(0.1))` directly.
 - **On-canvas indicator**: `'𝄐 延音'` drawn centred in blue (`rgba(80,160,255,0.88)`) when `fermataPaused` is true.
-- **State**: `fermataPaused` and `pinchSinceMs` are globals; `fermataSynth` (boolean flag) is a `startCamera()` closure variable.
+- **State**: `fermataPaused` and `pinchSinceMs` are globals; `fermataSynth` (`true` or `null`) and `fermataActiveNotes` (string array or `null`) are `startCamera()` closure variables; `fermataGain` is a module-level `Tone.Volume | null`.
 
 ---
 
@@ -110,7 +111,7 @@ All PoseLandmarker coordinates are in normalized [0, 1] space from the **subject
 ### `handSpeed(state)`
 - Input: `state.poseBuf` — a ring buffer of `{x, y, t}` samples (max `POS_BUF_SIZE` = 8 entries), where x/y are raw normalized pose coordinates (0–1) and t is `performance.now()` in milliseconds.
 - Computes average speed over the last `VELO_WINDOW` = 3 samples.
-- For each consecutive pair: `speed = sqrt(dx² + dy²) / dt`
+- For each consecutive pair: if `dt > 0 && dt < 100` (pairs ≥ 100 ms apart are dropped to discard stale-timestamp frames), `speed = sqrt(dx² + dy²) / dt`
 - Output unit: **normalized-coordinates per millisecond** (norm/ms).
 - **Jump filter**: before pushing to `poseBuf`, the Manhattan distance from the last sample is checked. If `|Δx| + |Δy| > 0.25`, the buffer is cleared instead of appending. This discards teleporting landmarks.
 
@@ -124,7 +125,7 @@ All PoseLandmarker coordinates are in normalized [0, 1] space from the **subject
 2. **Ictus detection**: when `wasAboveHigh && speed < peakSpeed * 0.55` (descent to 55% of peak).
 3. **Debounce**: only fires if `frameT - lastBeatMs >= MIN_BEAT_MS` (200ms minimum between beats).
 4. **Window**: only fires if the rise phase lasted less than 600ms.
-5. **BPM update**: interval is `frameT - lastIctusMs`. Valid range: 200ms–3000ms (20–300 BPM). Raw BPM clamped to `[bpm0 * 0.4, bpm0 * 2.5]`, then smoothed: `smoothedBpm = 0.30 * smoothedBpm + 0.70 * clamped`. Also maintained: `bpmBuffer` (last 6 values) → `avgBpm`.
+5. **BPM update**: interval is `frameT - lastIctusMs`. Valid range: 200ms–3000ms (20–300 BPM). Raw BPM clamped to `[bpm0 * 0.4, bpm0 * 2.5]`, then smoothed: `smoothedBpm = 0.65 * smoothedBpm + 0.35 * clamped`. Also maintained: `bpmBuffer` (last 6 values) → `avgBpm`.
 
 ---
 
@@ -160,7 +161,7 @@ All PoseLandmarker coordinates are in normalized [0, 1] space from the **subject
 
 **`SCORE` label in HUD shows original file BPM.** The top-right panel of the HUD is labelled "SCORE" but displays `bpm0` (the MIDI file's initial BPM). The label is a stale artifact from a removed scoring feature.
 
-**Camera resolution may be silently downscaled.** `getUserMedia({video:{width:1280,height:720}})` is a hint, not a guarantee. The canvas is fixed at 1280×720.
+**Camera resolution is browser-chosen.** `getUserMedia` requests only `{facingMode:'user'}` with no width/height constraints. The canvas is sized from `video.videoWidth`/`video.videoHeight` after `video.play()`, falling back to 1280×720 if those values are zero. The actual resolution depends entirely on the device and browser.
 
 **Time signature support is limited.** Compound meters (6, 9, 12 beats) are mapped to simple equivalents. Any time signature not in `[[2,4],[3,4],[4,4]]` is forced to 4/4.
 
@@ -184,13 +185,13 @@ All PoseLandmarker coordinates are in normalized [0, 1] space from the **subject
 
 **`AutoScheduler._nodes` node-pruning.** The array of scheduled `BufferSourceNode`/`OscillatorNode` references and the per-frame pruning loop are gone. Tone.js manages its own voice lifecycle.
 
-**`AutoScheduler.lastNote` (single note).** Replaced by `AutoScheduler.lastChord` (a `Set`), which captures all note-on events in the most recently scheduled beat window for polyphonic fermata sustain.
+**`AutoScheduler.lastNote` (single note).** Replaced by `AutoScheduler.lastChord` (a `Map<string, number>`), which accumulates all note-on events across the song (key = note name, value = scheduled audio time). At fermata time, entries are filtered to those already fired (`when <= Tone.now()`) for polyphonic fermata sustain.
 
 **HandLandmarker re-detection mode switching.** The `handVideoMode` boolean, `handMissedFrames` counter, `HAND_REDETECT_FRAMES` constant, and both `setOptions()` calls (switching between `'VIDEO'` and `'IMAGE'` modes) are removed. HandLandmarker now runs in `VIDEO` mode unconditionally.
 
 **Right-hand pinch/fermata (original).** An earlier version used a right-hand pinch gesture for fermata. Removed because the fast conducting motion of the right hand caused false positives. The gesture was redesigned for the **left** hand using `isPinch()` inside `startCamera()`.
 
-**`fermataOscillators` / `Tone.Oscillator` sustain.** Per-note oscillator array replaced by `scheduler.inst.triggerAttack` / `triggerRelease` on the existing Sampler. `fermataSynth` is now a simple boolean flag (truthy = sustain active).
+**`fermataOscillators` / `Tone.Oscillator` sustain.** Per-note oscillator array replaced by a `Tone.Volume` crossfade gate (`fermataGain`). Audio always routes sampler → `fermataGain` → `Tone.Destination`. On fermata enter, `fermataGain.volume` is instantly dropped to −40 dB, the captured notes are retriggered at near-zero velocity, and volume ramps to 0 dB over 80 ms to mask the attack transient. On release, volume ramps to −40 dB over 50 ms, then `triggerRelease` fires and volume resets to 0 dB for normal playback. `fermataSynth` (`true`/`null`) tracks whether notes were found at enter; `fermataActiveNotes` (string array or `null`) stores the exact note set so the same notes are released on exit.
 
 **`flashOverlay()`, `finishGame()`, `_currentBeatNum`, `crossPaused`, `fermataNote`, `_fb410` DOM probe, `instrument` global, `speedFactor` assignment, `rightLm`.** All removed during dead code cleanup passes.
 
@@ -206,7 +207,7 @@ All PoseLandmarker coordinates are in normalized [0, 1] space from the **subject
 
 **`SCORE` label should be updated.** The HUD panel labelled "SCORE" displays the original file BPM (`bpm0`). Rename to "ORIG" or "FILE BPM" to avoid confusion.
 
-**BPM smoothing is aggressive.** `SMOOTHING = 0.30` gives 70% weight to each new raw interval. If a "lock-in" mode is desired, `bpmBuffer` and `avgBpm` are already computed and could drive `scheduler.setSpeed()` instead of `smoothedBpm`.
+**BPM smoothing.** `SMOOTHING = 0.65` gives 35% weight to each new raw interval (65% history). If a more reactive response is desired, lower `SMOOTHING`; for a "lock-in" mode, `bpmBuffer` and `avgBpm` are already computed and could drive `scheduler.setSpeed()` instead of `smoothedBpm`.
 
 **Sensitivity slider direction is counterintuitive.** Dragging right (higher value) makes detection easier (lower threshold), which is correct behaviour but may surprise users expecting higher value = harder. The slider range 1–10 maps to decreasing threshold via `0.003 * Math.pow(0.22, (sens-1)/4)`.
 
