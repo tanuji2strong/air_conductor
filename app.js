@@ -62,7 +62,7 @@ class AutoScheduler {
   constructor(analyzer,instrument,onBeatScheduled,onSongEnd){
     this.a=analyzer; this.inst=instrument;
     this.onBeatScheduled=onBeatScheduled; this.onSongEnd=onSongEnd||null;
-    this.bpm=analyzer.initialBpm; this.speedFactor=1.0; this.beatS=60/this.bpm;
+    this.bpm=analyzer.initialBpm; this.beatS=60/this.bpm;
     this.ts=[4,4]; this.playing=false; this.muted=false;
     this._AHEAD=0.15; this.gainScale=1.0; this.lastChord=new Set();
     this.currentTick=0; this.eventIndex=0;
@@ -451,6 +451,7 @@ document.getElementById('fileInput').addEventListener('change',async(e)=>{
     scheduler.setTS(currentTS);
 
     document.getElementById('uploadOverlay').style.display='none';
+    document.getElementById('songEndOverlay').style.display='none';
     isPaused=false;
     const pb=document.getElementById('pauseBtn');
     if(pb){pb.disabled=true;pb.textContent='⏸';pb.title='暫停';}
@@ -482,8 +483,8 @@ function drawMetronomeHUD() {
   const hudCanvas = elHudCanvas;
   const camCanvas = elCamCanvas;
 
-  const W = camCanvas.width  || camCanvas.clientWidth  || 640;
-  const H = camCanvas.height || camCanvas.clientHeight || 480;
+  const W = 1280;
+  const H = 720;
   if (hudCanvas.width !== W)  hudCanvas.width  = W;
   if (hudCanvas.height !== H) hudCanvas.height = H;
 
@@ -675,7 +676,7 @@ function drawMetronomeHUD() {
 
 // Dedicated 60fps loop for the HUD — decoupled from MediaPipe
 function hudLoop() {
-  const needsAnim = scheduler?.playing || (performance.now() - _flareMs < 200) || crossPauseSinceMs > 0 || fistPaused;
+  const needsAnim = scheduler?.playing || (performance.now() - _flareMs < 200) || crossPauseSinceMs > 0;
   if (_hudDirty || needsAnim) { drawMetronomeHUD(); _hudDirty = false; }
   requestAnimationFrame(hudLoop);
 }
@@ -821,10 +822,6 @@ async function startCamera(){
       }
 
       const lFinger=lm&&lm[19];
-      if(lFinger&&lFinger.visibility>0.3&&known.left.lm){
-        known.left.wx=(1-lFinger.x)*W;
-        known.left.wy=lFinger.y*H;
-      }
       const lShoulder=lm&&lm[11];
       const lHip=lm&&lm[23];
       if(lFinger&&lShoulder&&lHip&&lFinger.visibility>0.3&&lShoulder.visibility>0.3&&lHip.visibility>0.3){

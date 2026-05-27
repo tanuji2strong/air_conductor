@@ -27,13 +27,14 @@ All three loops are started unconditionally at page load and run forever, fully 
 - Runs even before a MIDI file is loaded (scheduler is null-guarded).
 
 **`hudLoop()`**
-- Calls `drawMetronomeHUD()` when `_hudDirty` is true or when animation is needed (scheduler playing, flare within 200ms, cross-pause ring filling, fist-paused state).
-- Owns: the `#hudCanvas` overlay — beat number, BPM panels, dynamics bar, anticipation arc, flare ring, cross-pause ring, CUT-OFF label.
+- Calls `drawMetronomeHUD()` when `_hudDirty` is true or when animation is needed (scheduler playing, flare within 200ms, cross-pause ring filling).
+- Owns: the `#hudCanvas` overlay — beat number, BPM panels, dynamics bar, anticipation arc, flare ring, cross-pause ring.
+- `#hudCanvas` has `width="1280" height="720"` set in HTML so it is sized before the camera starts. `drawMetronomeHUD()` uses hardcoded `W=1280, H=720`.
 - Never draws to the camera canvas.
 
 **`detect()` (inside `startCamera()`)**
 - Runs PoseLandmarker every frame; runs HandLandmarker every 3rd frame (throttled).
-- Owns: camera frame draw, wrist trail and dot rendering, left-hand skeleton, shoulder/hip reference lines, pose gesture logic (cross-pause), fist cut-off, fermata pinch, beat detection via `detectBeat()`.
+- Owns: camera frame draw, index fingertip trail and dot rendering, left-hand skeleton, shoulder/hip reference lines, pose gesture logic (cross-pause), fist cut-off, fermata pinch, beat detection via `detectBeat()`.
 - Does not start until the first MIDI file is loaded and `startCamera()` is called. Once started, runs for the lifetime of the page (`cameraStarted` flag prevents re-entry).
 
 ---
@@ -45,9 +46,9 @@ All three loops are started unconditionally at page load and run forever, fully 
 3. **Loading**: `await Tone.loaded()` blocks the file-load handler until all sample buffers are fetched. The start overlay is not shown until loading completes.
 4. **AudioContext unlock**: `await Tone.start()` is called in `startCountdown()` (after the user has clicked the start overlay) and in all gesture resume paths. This satisfies the browser autoplay policy.
 5. **Scheduling**: `AutoScheduler.update()` runs every rAF tick via `schedulerLoop`. It calls `_scheduleBeat()` for each upcoming beat within a 0.15-second lookahead window. Notes are scheduled via `this.inst.triggerAttackRelease(noteName, 1.5, when, velocity)`. The Tone.js audio clock (`Tone.now()`) is used for all scheduling; `performance.now()` is used only for gesture timing.
-6. **Chord tracking**: `AutoScheduler.lastChord` is a `Set<string>` that is cleared at the start of each `_scheduleBeat()` call and populated with every note name that fires a `note_on` in that beat window. This is used by the fermata pinch gesture to recreate the last chord as oscillators.
+6. **Chord tracking**: `AutoScheduler.lastChord` is a `Set<string>` that is cleared at the start of each `_scheduleBeat()` call and populated with every note name that fires a `note_on` in that beat window. Used by the fermata pinch gesture to sustain the last chord via `triggerAttack`.
 7. **Stop**: `AutoScheduler._stopAll()` calls `this.inst.releaseAll()`, which triggers the release envelope on all active sampler voices.
-8. **Song end**: `_scheduleBeat()` sets `playing = false` when `currentTick >= totalTicks`. `showSongEnd()` fires 2 seconds later via `setTimeout`.
+8. **Song end**: `_scheduleBeat()` sets `playing = false` when `currentTick >= totalTicks`. `showSongEnd()` fires 2 seconds later via `setTimeout`. The song end overlay (`#songEndOverlay`) is shown; it offers 再播一次 (play again via `restartGame()`) and 載入新曲 (show upload overlay).
 9. **Note name format**: `_midiName(n)` produces scientific pitch notation with sharps only: `"C4"`, `"D#4"`, `"A#3"` etc. Compatible with Tone.js input.
 
 ---
@@ -58,9 +59,9 @@ All PoseLandmarker coordinates are in normalized [0, 1] space from the **subject
 
 ### Beat conducting — right hand (PoseLandmarker)
 - **Hand**: subject's right hand
-- **Landmark**: `lm[16]` (right wrist, PoseLandmarker pose landmarks)
+- **Landmark**: `lm[20]` (right index fingertip, PoseLandmarker pose landmarks)
 - **Mechanism**: `handSpeed()` + `detectBeat()` called every frame; see Section 5.
-- **Effect**: adjusts `scheduler.speedFactor` via `scheduler.setSpeed(smoothedBpm / bpm0)`.
+- **Effect**: adjusts `scheduler.beatS` via `scheduler.setSpeed(smoothedBpm / bpm0)`.
 
 ### Volume control — left index finger (PoseLandmarker)
 - **Hand**: subject's left hand
@@ -69,13 +70,13 @@ All PoseLandmarker coordinates are in normalized [0, 1] space from the **subject
 - **Effect**: scales note velocity at playback time inside `AutoScheduler._play()`.
 
 ### Cross-pause — both hands above eyes (PoseLandmarker)
-- **Landmarks**: `lm[3]` (left eye), `lm[4]` (right eye), `known.left.lm` (left wrist via lm[15]), `known.right.lm` (right wrist via lm[16])
-- **Condition**: `wl.y < el.y && wr.y < er.y` — both wrists above their respective eyes
+- **Landmarks**: `lm[3]` (left eye), `lm[4]` (right eye), `known.left.lm` (left index fingertip via lm[19]), `known.right.lm` (right index fingertip via lm[20])
+- **Condition**: `wl.y < el.y && wr.y < er.y` — both fingertips above their respective eyes
 - **Hold timer**: `crossPauseSinceMs`; fires after 150ms of continuous gesture
-- **Effect**: sets `autoPaused = true`, `crossPaused = true`, calls `scheduler.pause()`
+- **Effect**: sets `autoPaused = true`, calls `scheduler.pause()`
 - **Guards**: only active when `scheduler.playing && !isPaused && !autoPaused && !countdownActive`
-- **Resume**: both wrists below both eyes (`wl.y > el.y && wr.y > er.y`); only when `autoPaused && !isPaused && !fistPaused`
-- **On-canvas indicator**: `'停止'` drawn centred on the camera canvas when `autoPaused && !fermataPaused`
+- **Resume**: both fingertips below both eyes (`wl.y > el.y && wr.y > er.y`); only when `autoPaused && !isPaused && !fistPaused`
+- **On-canvas indicator**: `'停止'` drawn centred on the camera canvas when `autoPaused && !fermataPaused && !fistPaused`
 
 ### Fist cut-off — left hand (HandLandmarker)
 - **Hand**: subject's left hand (`handedness[i][0].categoryName === 'Left'` → `leftLm`)
@@ -84,24 +85,23 @@ All PoseLandmarker coordinates are in normalized [0, 1] space from the **subject
 - **Effect**: calls `scheduler.pause()`, `scheduler._stopAll()` (triggers `releaseAll()` on the sampler), sets `autoPaused = true`, `fistPaused = true`
 - **Resume**: hand opens (fist test fails), then waits `FIST_COOLDOWN` = 800ms via `fistResumeCooldownMs` before calling `Tone.start()` then `scheduler.resume(0.1)`. Sets `fistPaused = false`, `autoPaused = false`.
 - **Isolation**: `fistPaused = true` blocks both the cross-pause resume path and the pinch fermata block.
-- **HUD**: `'✕ CUT-OFF'` label drawn below the beat number when `fistPaused` is true.
+- **On-canvas indicator**: `'✕ 截止'` drawn centred on the camera canvas in red (`rgba(224,82,82,0.88)`) with matching shadow — same bold Cormorant Garamond style as the fermata indicator.
 
 ### Fermata pinch — left hand (HandLandmarker)
 - **Hand**: subject's left hand (`leftLm`)
 - **Pinch test** (`isPinch(lm)`): normalised thumb-tip to index-tip distance < 0.25. Scale-invariant: raw distance `d(lm[4], lm[8])` divided by hand size `d(lm[0], lm[9])` (wrist to middle MCP).
-- **Hold timer**: `pinchSinceMs`; fires after 150ms of continuous gesture
+- **Hold timer**: `pinchSinceMs`; fires after 20ms of continuous gesture
 - **Guard**: only active when `!fistPaused && fistSinceMs === 0 && leftLm` — blocked both when a fist is confirmed (`fistPaused`) and while a fist is forming (`fistSinceMs > 0`).
 - **Effect on enter**:
   1. Sets `fermataPaused = true`
-  2. Calls `scheduler.pause()` (stops the scheduler tick and calls `releaseAll()` on the sampler — notes decay naturally over the 1-second release envelope)
-  3. Iterates `scheduler.lastChord` (the Set of note names from the most-recently scheduled beat); for each note, creates a `Tone.Oscillator` (sine wave), fades it in from −40 dB to −12 dB over 0.2s, and pushes it into `fermataOscillators[]`. This sustains the chord indefinitely while the pinch is held.
+  2. Calls `scheduler.pause()`
+  3. If `scheduler.lastChord` is non-empty, calls `scheduler.inst.triggerAttack(notes, Tone.now() + 0.05)` to sustain the chord indefinitely. Sets `fermataSynth = true` as a boolean flag.
 - **Effect on release**:
   1. Sets `fermataPaused = false`, resets `pinchSinceMs = 0`
-  2. For each oscillator in `fermataOscillators`: ramps volume to −60 dB over 0.2s, then `stop()` + `dispose()` after 250ms in a `setTimeout`
-  3. Clears `fermataOscillators = []`
-  4. Chains `Tone.start().then(() => scheduler.resume(0.1))`
+  2. If `fermataSynth` is true and `scheduler.inst` exists, calls `scheduler.inst.triggerRelease(notes, Tone.now())` to release the sustained notes. Sets `fermataSynth = null`.
+  3. Chains `Tone.start().then(() => scheduler.resume(0.1))`
 - **On-canvas indicator**: `'𝄐 延音'` drawn centred in blue (`rgba(80,160,255,0.88)`) when `fermataPaused` is true.
-- **State**: `fermataPaused` and `pinchSinceMs` are globals; `fermataOscillators` and `fermataNote` (dead) are `startCamera()` closure variables.
+- **State**: `fermataPaused` and `pinchSinceMs` are globals; `fermataSynth` (boolean flag) is a `startCamera()` closure variable.
 
 ---
 
@@ -112,6 +112,7 @@ All PoseLandmarker coordinates are in normalized [0, 1] space from the **subject
 - Computes average speed over the last `VELO_WINDOW` = 3 samples.
 - For each consecutive pair: `speed = sqrt(dx² + dy²) / dt`
 - Output unit: **normalized-coordinates per millisecond** (norm/ms).
+- **Jump filter**: before pushing to `poseBuf`, the Manhattan distance from the last sample is checked. If `|Δx| + |Δy| > 0.25`, the buffer is cleared instead of appending. This discards teleporting landmarks.
 
 ### `cachedHighThr` at default sensitivity
 - Formula: `0.003 * Math.pow(0.22, (sens - 1) / 4)`
@@ -139,7 +140,7 @@ All PoseLandmarker coordinates are in normalized [0, 1] space from the **subject
 - **Model**: `hand_landmarker` (float16, version 1) from Google Cloud Storage
 - **Config**: `runningMode: 'VIDEO'`, `numHands: 2`, all confidence thresholds 0.5
 - **Delegate**: GPU with CPU fallback
-- **Responsible for**: left hand fist detection and fermata pinch detection (via `leftLm`); right hand (`rightLm`) is detected but currently unused
+- **Responsible for**: left hand fist detection and fermata pinch detection (via `leftLm`). Right hand landmarks are not used from HandLandmarker — beat conduction uses PoseLandmarker lm[20].
 - **Handedness convention**: Tasks Vision API reports handedness from the **subject's perspective** — `'Left'` is the person's actual left hand
 
 ### Throttle strategy
@@ -153,29 +154,11 @@ All PoseLandmarker coordinates are in normalized [0, 1] space from the **subject
 
 ---
 
-## 7. Known Limitations and Dead Code
-
-**`flashOverlay()` is dead code.** Defined but has zero call sites. Beat flashes do not fire.
-
-**`finishGame()` is dead code.** Defined but never called. `showSongEnd()` is the actual song-end handler.
-
-**`_currentBeatNum` is always 1.** Declared and reset to 1 but never written by the scheduler callback (only `_nextBeatNum` is updated). Never read in the HUD.
-
-**`crossPaused` flag is set but never branched on.** Set alongside `autoPaused` during cross-pause; the actual gate is `autoPaused && !fistPaused`. Carries no independent effect.
-
-**`fermataNote` is dead code.** Declared in the `startCamera()` closure and set to `null` in both the enter and release blocks, but never read or used for anything meaningful. Leftover from the previous single-note sustain implementation.
-
-**`fermataOscillators` leaks on song reset.** `_resetPlayState()` sets `fermataPaused = false` but does not stop or dispose any oscillators currently in the closure-scoped `fermataOscillators` array. If the song ends or is restarted while a fermata pinch is active, those oscillators continue running until the page is unloaded.
-
-**Help dropdown documents incorrect gestures.** `index.html` states "右手握拳 → 截止" (right-hand fist) and "右手捏指 → 延音" (right-hand pinch). The actual implementation uses the **left** hand for both gestures.
+## 7. Known Limitations
 
 **`isRightFist` is applied to `leftLm`.** The function is named `isRightFist` but called as `isRightFist(leftLm)`. The geometry is symmetric so the check is correct, but the name is a misleading legacy artifact.
 
-**`_fb410` DOM probe is a stub.** `document.getElementById('fileBpm')` checks for a `#fileBpm` element that does not exist in `index.html`. Silent no-op from a removed sidebar element.
-
-**`autoCtx` comment in schedulerLoop** refers to a non-existent `autoCtx`. The comment block mentions audio scheduling independence from MediaPipe but references removed implementation details.
-
-**Cross-pause resume does not guard against `fermataPaused`.** The resume gesture (`autoPaused && !isPaused && !fistPaused`) will fire even when `fermataPaused` is true, causing the scheduler to resume while fermata oscillators are still playing.
+**`SCORE` label in HUD shows original file BPM.** The top-right panel of the HUD is labelled "SCORE" but displays `bpm0` (the MIDI file's initial BPM). The label is a stale artifact from a removed scoring feature.
 
 **Camera resolution may be silently downscaled.** `getUserMedia({video:{width:1280,height:720}})` is a hint, not a guarantee. The canvas is fixed at 1280×720.
 
@@ -183,11 +166,17 @@ All PoseLandmarker coordinates are in normalized [0, 1] space from the **subject
 
 **`startCamera()` can only be called once per page load.** The `cameraStarted` flag prevents re-entry. Camera failures after init are unrecoverable without a page reload.
 
+**No touch/mobile support.** The app requires a webcam and operates at 1280×720. `getUserMedia` on mobile may silently switch to the front camera at a lower resolution.
+
+**Tone.js Sampler CDN dependency.** Samples load from `tonejs.github.io/audio/salamander/`. If unavailable, there is no audio and no user-visible error beyond the load hang at `await Tone.loaded()`.
+
+**Old sampler not disposed on re-load.** Each file load creates a new `Tone.Sampler` and a new `AutoScheduler`. The previous sampler's audio nodes are orphaned (not explicitly `.dispose()`d). Tone.js handles GC eventually, but multiple file loads in one session accumulate briefly-orphaned objects.
+
 ---
 
 ## 8. What Was Intentionally Removed
 
-**`audioCtx` / Web Audio API direct usage.** All `AudioContext` creation, `audioCtx.resume()` calls, and `OscillatorNode`/`GainNode` scheduling replaced by Tone.js. The only remaining raw Web Audio usage is the `Tone.Oscillator` created for the fermata sustain.
+**`audioCtx` / Web Audio API direct usage.** All `AudioContext` creation, `audioCtx.resume()` calls, and `OscillatorNode`/`GainNode` scheduling replaced by Tone.js. There is no remaining raw Web Audio API usage — the fermata sustain previously used `Tone.Oscillator` nodes but was replaced with `scheduler.inst.triggerAttack/triggerRelease`.
 
 **`makeFallbackInstrument()`.** The triangle-wave synth fallback is gone. Tone.js Sampler is the sole instrument. If the Salamander CDN is unavailable, there is no audio — no user-visible fallback indicator.
 
@@ -201,6 +190,10 @@ All PoseLandmarker coordinates are in normalized [0, 1] space from the **subject
 
 **Right-hand pinch/fermata (original).** An earlier version used a right-hand pinch gesture for fermata. Removed because the fast conducting motion of the right hand caused false positives. The gesture was redesigned for the **left** hand using `isPinch()` inside `startCamera()`.
 
+**`fermataOscillators` / `Tone.Oscillator` sustain.** Per-note oscillator array replaced by `scheduler.inst.triggerAttack` / `triggerRelease` on the existing Sampler. `fermataSynth` is now a simple boolean flag (truthy = sustain active).
+
+**`flashOverlay()`, `finishGame()`, `_currentBeatNum`, `crossPaused`, `fermataNote`, `_fb410` DOM probe, `instrument` global, `speedFactor` assignment, `rightLm`.** All removed during dead code cleanup passes.
+
 **MediaPipe Holistic.** Replaced by Tasks Vision API in a previous revision.
 
 **Sidebar panel.** Replaced by the floating HUD canvas.
@@ -209,24 +202,12 @@ All PoseLandmarker coordinates are in normalized [0, 1] space from the **subject
 
 ## 9. Future Development Notes
 
-**`fermataNote` should be removed.** It is declared and nulled but never read. Removing it would clarify that `fermataOscillators` and `scheduler.lastChord` together fully own the fermata state.
-
-**`fermataOscillators` should be cleaned up in `_resetPlayState()`.** Currently, restarting or ending the song while a fermata is active leaks running oscillators. The fix: iterate `fermataOscillators`, stop and dispose each, then reset the array to `[]`.
-
-**Cross-pause resume should guard against `fermataPaused`.** Add `&& !fermataPaused` to the `if(autoPaused && !isPaused && !fistPaused && scheduler)` check, or lower-hands gesture should not resume the scheduler while fermata oscillators are still fading out.
-
-**`flashOverlay()` and `finishGame()` should either be wired up or deleted.** Dead functions are a maintenance hazard.
-
-**Sensitivity slider direction is counterintuitive.** Dragging right (higher value) makes detection easier (lower threshold), which is correct behaviour but may surprise users expecting higher value = harder. The slider range 1–10 maps to decreasing threshold via `0.003 * Math.pow(0.22, (sens-1)/4)`.
-
-**Help dropdown text is wrong.** Should be updated to say "左手握拳 → 截止" and "左手捏指 → 延音" to match the actual left-hand implementation.
-
 **`isRightFist` name is misleading.** Should be renamed to `isHandClosed` or `isFist`.
+
+**`SCORE` label should be updated.** The HUD panel labelled "SCORE" displays the original file BPM (`bpm0`). Rename to "ORIG" or "FILE BPM" to avoid confusion.
 
 **BPM smoothing is aggressive.** `SMOOTHING = 0.30` gives 70% weight to each new raw interval. If a "lock-in" mode is desired, `bpmBuffer` and `avgBpm` are already computed and could drive `scheduler.setSpeed()` instead of `smoothedBpm`.
 
-**No touch/mobile support.** The app requires a webcam and operates at 1280×720. `getUserMedia` on mobile may silently switch to the front camera at a lower resolution.
+**Sensitivity slider direction is counterintuitive.** Dragging right (higher value) makes detection easier (lower threshold), which is correct behaviour but may surprise users expecting higher value = harder. The slider range 1–10 maps to decreasing threshold via `0.003 * Math.pow(0.22, (sens-1)/4)`.
 
 **Tone.js Sampler CDN dependency.** Samples load from `tonejs.github.io/audio/salamander/`. If unavailable, there is no audio and no user-visible error beyond the load hang at `await Tone.loaded()`.
-
-**`_fb410` stub should be deleted.** `document.getElementById('fileBpm')` probes for a non-existent element on every file load.
