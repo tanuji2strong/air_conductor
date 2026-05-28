@@ -62,7 +62,9 @@ vision pipeline so that MediaPipe inference latency cannot affect beat
 timing. The system runs entirely in the browser with no installation.
 A CSS-only three-level font-size control, whose largest tier enlarges
 all visual feedback and interactive elements for elder accessibility,
-operates without modifying any gesture thresholds or application logic.
+and a bilingual (Traditional Chinese\,/\,English) interface toggle
+together operate without modifying any gesture thresholds or
+application logic.
 The system is publicly available at
 \url{https://air-conductor.vercel.app/}; a demonstration video is at
 \url{https://youtu.be/KhBOaTDZv-4}.
@@ -125,7 +127,9 @@ The contributions of this paper are:
 
   \item A CSS-only three-level font-size control whose large tier
   provides elder-accessible scaling of all visual feedback and
-  interactive elements without altering any gesture threshold or
+  interactive elements, and a bilingual (Traditional Chinese\,/\,English)
+  interface toggle---both implemented via the same \texttt{data-*}
+  attribute pattern---without altering any gesture threshold or
   application logic.
 \end{enumerate}
 
@@ -680,6 +684,23 @@ thresholds, timing constants, or audio logic---the large tier provides
 a complete elder accessibility profile within the same control as the
 general font-size preference.
 
+\subsection{Bilingual Interface}
+
+The system provides a two-state language toggle (Traditional Chinese\,/\,English)
+in the header. Activating the toggle sets the \texttt{data-lang}
+attribute on the \texttt{<html>} element, persisted via
+\texttt{localStorage} and restored before the first paint by an inline
+script---following the same pattern as the font-size control. A
+\texttt{setLang()} function iterates all elements tagged with
+\texttt{data-i18n} (plain text) or \texttt{data-i18n-html} (rich text)
+attributes and swaps their content from a static bilingual string table,
+covering all visible interface text: header labels, help-panel
+descriptions, overlay messages, and the canvas-rendered gesture
+indicators (\textsc{Cut-off}, \textsc{Fermata}). The
+\texttt{<html\,lang>} attribute is updated concurrently
+(\texttt{zh-TW} or \texttt{en}) for screen-reader compatibility.
+Gesture thresholds, timing constants, and audio logic are unaffected.
+
 % ---------------------------------------------
 %  V. DISCUSSION
 % ---------------------------------------------
@@ -764,7 +785,9 @@ expressive musical control through only a standard webcam, with audio
 beat timing governed by the Web Audio API hardware clock independent of
 MediaPipe inference latency. A CSS-only three-level font-size control,
 whose large tier serves as a complete elder accessibility profile,
-scales the interface without modifying any gesture logic or thresholds.
+and a bilingual (Traditional Chinese\,/\,English) interface toggle
+together localise and scale the interface without modifying any gesture
+logic or thresholds.
 
 Future work will pursue: (1) directional stroke classification to
 distinguish standard conducting beat patterns; (2) full MIDI tempo-map

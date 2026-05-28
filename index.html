@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html data-theme="dark" lang="zh-TW">
+<html data-theme="dark" lang="zh-TW" data-lang="zh">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,42 +10,47 @@
     (function () {
       var s = localStorage.getItem('airConductor_fontSize') || 'small';
       document.documentElement.setAttribute('data-fontsize', s);
+      var l = localStorage.getItem('airConductor_lang') || 'zh';
+      document.documentElement.setAttribute('data-lang', l);
+      if (l === 'en') document.documentElement.lang = 'en';
     })();
   </script>
 </head>
 <body>
 
 <header>
-  <h1>空氣指揮家</h1>
+  <h1 data-i18n="title">空氣指揮家</h1>
   <div class="header-right">
-    <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="切換亮色／暗色模式">☀</button>
-    <button class="theme-btn pause-btn" id="pauseBtn" onclick="togglePause()" title="暫停" disabled>⏸</button>
+    <button class="theme-btn" id="themeBtn" onclick="toggleTheme()"
+      data-i18n-title="themeTitle" title="切換亮色／暗色模式">☀</button>
+    <button class="theme-btn pause-btn" id="pauseBtn" onclick="togglePause()"
+      data-i18n-title="pauseTitle" title="暫停" disabled>⏸</button>
     <div class="help-wrap" id="helpWrap">
-      <button class="help-btn" id="helpBtn" onclick="toggleHelp()">說明 ▾</button>
+      <button class="help-btn" id="helpBtn" onclick="toggleHelp()" data-i18n="helpBtn">說明 ▾</button>
       <div class="help-dropdown" id="helpDropdown">
         <div class="help-section">
-          <div class="help-title">右手 — 指揮節拍</div>
-          <div class="help-body">揮動右手設定速度。揮得越快，音樂越快；越慢，音樂越慢。停止揮動，維持最後速度。</div>
+          <div class="help-title" data-i18n="helpRightTitle">右手 — 指揮節拍</div>
+          <div class="help-body" data-i18n="helpRightBody">揮動右手設定速度。揮得越快，音樂越快；越慢，音樂越慢。停止揮動，維持最後速度。</div>
         </div>
         <div class="help-section">
-          <div class="help-title">左手 — 控制音量</div>
-          <div class="help-body">食指舉高過肩膀 → 音量增加<br>食指降至腰部以下 → 音量減少<br>手停在中間 → 音量維持</div>
+          <div class="help-title" data-i18n="helpLeftTitle">左手 — 控制音量</div>
+          <div class="help-body" data-i18n-html="helpLeftBody">食指舉高過肩膀 → 音量增加<br>食指降至腰部以下 → 音量減少<br>手停在中間 → 音量維持</div>
         </div>
         <div class="help-section">
-          <div class="help-title">手勢</div>
-          <div class="help-body">左手握拳 → 截止（立即停止）<br>左手捏指 → 延音（音符自然延長）<br>雙手舉過眼睛 → 暫停<br>雙手放下 → 繼續</div>
+          <div class="help-title" data-i18n="helpGestureTitle">手勢</div>
+          <div class="help-body" data-i18n-html="helpGestureBody">左手握拳 → 截止（立即停止）<br>左手捏指 → 延音（音符自然延長）</div>
         </div>
         <div class="help-section">
-          <div class="help-title">靈敏度</div>
-          <div class="help-body">調整偵測手臂動作所需的速度</div>
+          <div class="help-title" data-i18n="helpSensTitle">靈敏度</div>
+          <div class="help-body" data-i18n="helpSensBody">調整偵測手臂動作所需的速度</div>
           <div class="sens-row">
             <input type="range" id="sensSlider" min="1" max="10" value="1" oninput="onSensChange(this.value)">
             <span class="sens-val" id="sensVal">1</span>
           </div>
         </div>
         <div class="help-section">
-          <div class="help-title">鍵盤快捷鍵</div>
-          <div class="help-body">
+          <div class="help-title" data-i18n="helpShortcutTitle">鍵盤快捷鍵</div>
+          <div class="help-body" data-i18n-html="helpShortcutBody">
             <kbd>Space</kbd> 暫停 / 繼續<br>
             <kbd>R</kbd> 重新開始歌曲<br>
             <kbd>M</kbd> 靜音 / 取消靜音<br>
@@ -55,12 +60,16 @@
         </div>
       </div>
     </div>
-    <div class="fontsize-btns">
-      <button class="fontsize-btn active" data-size="small" onclick="setFontSize('small')">小</button>
-      <button class="fontsize-btn" data-size="medium" onclick="setFontSize('medium')">中</button>
-      <button class="fontsize-btn" data-size="large" onclick="setFontSize('large')">大</button>
+    <div class="lang-btns">
+      <button class="fontsize-btn active" data-lang-btn="zh" onclick="setLang('zh')">中</button>
+      <button class="fontsize-btn" data-lang-btn="en" onclick="setLang('en')">EN</button>
     </div>
-    <button class="upload-btn" onclick="document.getElementById('fileInput').click()">載入 MIDI</button>
+    <div class="fontsize-btns">
+      <button class="fontsize-btn active" data-size="small" onclick="setFontSize('small')" data-i18n="fsSmall">小</button>
+      <button class="fontsize-btn" data-size="medium" onclick="setFontSize('medium')" data-i18n="fsMedium">中</button>
+      <button class="fontsize-btn" data-size="large" onclick="setFontSize('large')" data-i18n="fsLarge">大</button>
+    </div>
+    <button class="upload-btn" onclick="document.getElementById('fileInput').click()" data-i18n="uploadBtn">載入 MIDI</button>
     <input type="file" id="fileInput" accept=".mid,.midi">
   </div>
 </header>
@@ -75,28 +84,28 @@
 
     <div class="countdown-overlay" id="countdownOverlay">
       <div class="countdown-num" id="countdownNum">3</div>
-      <div class="countdown-sub">準備好跟上節拍！</div>
+      <div class="countdown-sub" data-i18n="countdownSub">準備好跟上節拍！</div>
     </div>
 
     <div class="start-overlay" id="startOverlay" onclick="onStartOverlayClick()">
       <div class="start-icon">♩</div>
-      <h2>點擊開始</h2>
-      <p>點擊畫面，開始 10 秒倒數<br>準備好跟上節拍！</p>
+      <h2 data-i18n="startTitle">點擊開始</h2>
+      <p data-i18n-html="startBody">點擊畫面，開始 10 秒倒數<br>準備好跟上節拍！</p>
     </div>
 
     <div class="upload-overlay" id="uploadOverlay">
-      <h2>空氣指揮家</h2>
-      <p>載入 MIDI 檔案——音樂會自動播放。</p>
-      <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+      <h2 data-i18n="uploadOverlayTitle">空氣指揮家</h2>
+      <p data-i18n="uploadOverlayBody">載入 MIDI 檔案——音樂會自動播放。</p>
+      <button class="upload-btn" onclick="document.getElementById('fileInput').click()" data-i18n="uploadOverlayBtn">
         載入 MIDI 檔案
       </button>
     </div>
 
     <div class="song-end-overlay" id="songEndOverlay">
-      <h2>演奏結束</h2>
+      <h2 data-i18n="songEndTitle">演奏結束</h2>
       <div class="song-end-btns">
-        <button class="song-end-btn" onclick="playAgain()">再播一次</button>
-        <button class="song-end-btn song-end-btn-new" onclick="loadNewSong()">載入新曲</button>
+        <button class="song-end-btn" onclick="playAgain()" data-i18n="playAgain">再播一次</button>
+        <button class="song-end-btn song-end-btn-new" onclick="loadNewSong()" data-i18n="loadNew">載入新曲</button>
       </div>
     </div>
   </div>
@@ -125,15 +134,16 @@
   function setFontSize(size) {
     document.documentElement.setAttribute('data-fontsize', size);
     localStorage.setItem('airConductor_fontSize', size);
-    document.querySelectorAll('.fontsize-btn').forEach(function (btn) {
+    document.querySelectorAll('.fontsize-btn[data-size]').forEach(function (btn) {
       btn.classList.toggle('active', btn.dataset.size === size);
     });
   }
   (function () {
     var s = document.documentElement.getAttribute('data-fontsize') || 'small';
-    document.querySelectorAll('.fontsize-btn').forEach(function (btn) {
+    document.querySelectorAll('.fontsize-btn[data-size]').forEach(function (btn) {
       btn.classList.toggle('active', btn.dataset.size === s);
     });
+    setLang(currentLang);
   })();
 </script>
 

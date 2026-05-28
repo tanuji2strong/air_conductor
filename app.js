@@ -1,6 +1,110 @@
 'use strict';
 
 // ═══════════════════════════════════════════
+//  I18N STRINGS
+// ═══════════════════════════════════════════
+const STRINGS = {
+  zh: {
+    title:              '空氣指揮家',
+    helpBtn:            '說明 ▾',
+    helpBtnOpen:        '說明 ▴',
+    fsSmall:            '小',
+    fsMedium:           '中',
+    fsLarge:            '大',
+    uploadBtn:          '載入 MIDI',
+    helpRightTitle:     '右手 — 指揮節拍',
+    helpRightBody:      '揮動右手設定速度。揮得越快，音樂越快；越慢，音樂越慢。停止揮動，維持最後速度。',
+    helpLeftTitle:      '左手 — 控制音量',
+    helpLeftBody:       '食指舉高過肩膀 → 音量增加<br>食指降至腰部以下 → 音量減少<br>手停在中間 → 音量維持',
+    helpGestureTitle:   '手勢',
+    helpGestureBody:    '左手握拳 → 截止（立即停止）<br>左手捏指 → 延音（音符自然延長）',
+    helpSensTitle:      '靈敏度',
+    helpSensBody:       '調整偵測手臂動作所需的速度',
+    helpShortcutTitle:  '鍵盤快捷鍵',
+    helpShortcutBody:   '<kbd>Space</kbd> 暫停 / 繼續<br><kbd>R</kbd> 重新開始歌曲<br><kbd>M</kbd> 靜音 / 取消靜音<br><kbd>+</kbd> / <kbd>−</kbd> 調整靈敏度<br><kbd>L</kbd> 切換亮色模式',
+    startTitle:         '點擊開始',
+    startBody:          '點擊畫面，開始 10 秒倒數<br>準備好跟上節拍！',
+    countdownSub:       '準備好跟上節拍！',
+    uploadOverlayTitle: '空氣指揮家',
+    uploadOverlayBody:  '載入 MIDI 檔案——音樂會自動播放。',
+    uploadOverlayBtn:   '載入 MIDI 檔案',
+    songEndTitle:       '演奏結束',
+    playAgain:          '再播一次',
+    loadNew:            '載入新曲',
+    cutoff:             '✕ 截止',
+    fermata:            '𝄐 延音',
+    pauseTitle:         '暫停',
+    resumeTitle:        '繼續',
+    themeTitle:         '切換亮色／暗色模式',
+  },
+  en: {
+    title:              'Air Conductor',
+    helpBtn:            'Help ▾',
+    helpBtnOpen:        'Help ▴',
+    fsSmall:            'S',
+    fsMedium:           'M',
+    fsLarge:            'L',
+    uploadBtn:          'Load MIDI',
+    helpRightTitle:     'Right Hand — Beat',
+    helpRightBody:      'Wave your right hand to set the tempo. Faster waves speed up the music; slower waves slow it down. Stop waving to hold the last tempo.',
+    helpLeftTitle:      'Left Hand — Volume',
+    helpLeftBody:       'Raise index finger above shoulder → Volume up<br>Lower index finger below hip → Volume down<br>Hold in between → Volume holds',
+    helpGestureTitle:   'Gestures',
+    helpGestureBody:    'Left fist → Cut-off (stop immediately)<br>Left pinch → Fermata (notes sustain naturally)',
+    helpSensTitle:      'Sensitivity',
+    helpSensBody:       'Adjust the arm speed required to detect a beat',
+    helpShortcutTitle:  'Keyboard Shortcuts',
+    helpShortcutBody:   '<kbd>Space</kbd> Pause / Resume<br><kbd>R</kbd> Restart song<br><kbd>M</kbd> Mute / Unmute<br><kbd>+</kbd> / <kbd>−</kbd> Adjust sensitivity<br><kbd>L</kbd> Toggle light mode',
+    startTitle:         'Click to Start',
+    startBody:          'Click the screen to begin a 10-second countdown<br>Get ready to follow the beat!',
+    countdownSub:       'Get ready to follow the beat!',
+    uploadOverlayTitle: 'Air Conductor',
+    uploadOverlayBody:  'Load a MIDI file — music plays automatically.',
+    uploadOverlayBtn:   'Load MIDI File',
+    songEndTitle:       'Performance Complete',
+    playAgain:          'Play Again',
+    loadNew:            'New Song',
+    cutoff:             '✕ Cut-off',
+    fermata:            '𝄐 Fermata',
+    pauseTitle:         'Pause',
+    resumeTitle:        'Resume',
+    themeTitle:         'Toggle light / dark mode',
+  }
+};
+
+let currentLang = localStorage.getItem('airConductor_lang') || 'zh';
+
+function setLang(lang) {
+  currentLang = lang;
+  document.documentElement.setAttribute('data-lang', lang);
+  document.documentElement.lang = lang === 'zh' ? 'zh-TW' : 'en';
+  localStorage.setItem('airConductor_lang', lang);
+  document.title = STRINGS[lang].title;
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = STRINGS[lang][el.dataset.i18n] || '';
+  });
+  document.querySelectorAll('[data-i18n-html]').forEach(el => {
+    el.innerHTML = STRINGS[lang][el.dataset.i18nHtml] || '';
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    el.title = STRINGS[lang][el.dataset.i18nTitle] || '';
+  });
+  document.querySelectorAll('[data-lang-btn]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.langBtn === lang);
+  });
+  const pb = document.getElementById('pauseBtn');
+  if (pb) pb.title = isPaused ? STRINGS[lang].resumeTitle : STRINGS[lang].pauseTitle;
+  const helpBtn = document.getElementById('helpBtn');
+  const helpDropdown = document.getElementById('helpDropdown');
+  if (helpBtn && helpDropdown) {
+    helpBtn.textContent = helpDropdown.classList.contains('open')
+      ? STRINGS[lang].helpBtnOpen
+      : STRINGS[lang].helpBtn;
+  }
+}
+
+
+// ═══════════════════════════════════════════
 //  MIDI ANALYZER
 // ═══════════════════════════════════════════
 class MidiAnalyzer {
@@ -152,7 +256,6 @@ const handState = {
 };
 let lastBeatMs = 0;
 let autoPaused = false;
-let crossPauseSinceMs = 0;
 let countdownActive = false;
 let smoothedBpm = 0;
 let lastIctusMs = 0;
@@ -194,7 +297,7 @@ function toggleHelp(){
   const d=document.getElementById('helpDropdown');
   const b=document.getElementById('helpBtn');
   const open=d.classList.toggle('open');
-  b.textContent=open?'說明 ▴':'說明 ▾';
+  b.textContent=open?STRINGS[currentLang].helpBtnOpen:STRINGS[currentLang].helpBtn;
 }
 document.addEventListener('click',e=>{
   const wrap=document.getElementById('helpWrap');
@@ -202,7 +305,7 @@ document.addEventListener('click',e=>{
     const d=document.getElementById('helpDropdown');
     const b=document.getElementById('helpBtn');
     if(d)d.classList.remove('open');
-    if(b)b.textContent='說明 ▾';
+    if(b)b.textContent=STRINGS[currentLang].helpBtn;
   }
 });
 
@@ -296,11 +399,11 @@ async function togglePause(){
   const btn=document.getElementById('pauseBtn');
   if(isPaused){
     scheduler.pause();
-    if(btn){btn.textContent='▶';btn.title='Resume';}
+    if(btn){btn.textContent='▶';btn.title=STRINGS[currentLang].resumeTitle;}
   }else{
     await Tone.start();
     scheduler.resume(0.1);
-    if(btn){btn.textContent='⏸';btn.title='Pause';}
+    if(btn){btn.textContent='⏸';btn.title=STRINGS[currentLang].pauseTitle;}
   }
 }
 
@@ -341,7 +444,7 @@ async function startCountdown(){
   await Tone.start();
   scheduler.start(0.25);
   const pb=document.getElementById('pauseBtn');
-  if(pb){pb.disabled=false;pb.textContent='⏸';pb.title='暫停';}
+  if(pb){pb.disabled=false;pb.textContent='⏸';pb.title=STRINGS[currentLang].pauseTitle;}
 }
 
 
@@ -358,7 +461,7 @@ function onStartOverlayClick(){
 function _resetPlayState(){
   handState.left ={poseBuf:[],wasAboveHigh:false,wasAboveHighTimestamp:0,peakSpeed:0,trail:[]};
   handState.right={poseBuf:[],wasAboveHigh:false,wasAboveHighTimestamp:0,peakSpeed:0,trail:[]};
-  lastBeatMs=0;autoPaused=false;crossPauseSinceMs=0;countdownActive=false;
+  lastBeatMs=0;autoPaused=false;countdownActive=false;
   fistSinceMs=0;fistPaused=false;fistResumeCooldownMs=0;handFrameCounter=0;
   pinchSinceMs=0;fermataPaused=false;
   smoothedBpm=0;lastIctusMs=0;bpmBuffer=[];avgBpm=0;
@@ -374,7 +477,7 @@ function restartGame(){
   if(scheduler)scheduler.reset();
   _resetPlayState();
   const pb=document.getElementById('pauseBtn');
-  if(pb){pb.disabled=true;pb.textContent='⏸';pb.title='暫停';}
+  if(pb){pb.disabled=true;pb.textContent='⏸';pb.title=STRINGS[currentLang].pauseTitle;}
   waitForStartClick();
 }
 function showSongEnd(){
@@ -382,7 +485,7 @@ function showSongEnd(){
   _resetPlayState();
   document.getElementById('songEndOverlay').style.display='flex';
   const pb=document.getElementById('pauseBtn');
-  if(pb){pb.disabled=true;pb.textContent='⏸';pb.title='暫停';}
+  if(pb){pb.disabled=true;pb.textContent='⏸';pb.title=STRINGS[currentLang].pauseTitle;}
 }
 function playAgain(){
   document.getElementById('songEndOverlay').style.display='none';
@@ -485,7 +588,7 @@ document.getElementById('fileInput').addEventListener('change',async(e)=>{
     document.getElementById('songEndOverlay').style.display='none';
     isPaused=false;
     const pb=document.getElementById('pauseBtn');
-    if(pb){pb.disabled=true;pb.textContent='⏸';pb.title='暫停';}
+    if(pb){pb.disabled=true;pb.textContent='⏸';pb.title=STRINGS[currentLang].pauseTitle;}
     // Show start overlay — countdown begins only on click
     waitForStartClick();
 
@@ -676,37 +779,12 @@ function drawMetronomeHUD() {
   ctx.fillStyle = light ? 'rgba(100,90,70,0.35)' : 'rgba(180,180,180,0.40)';
   ctx.fillRect(_barX - 2 * scale, _tickY - scale, _barW + 4 * scale, 2 * scale);
 
-  // Cross-pause gesture progress ring
-  if (crossPauseSinceMs > 0) {
-    const prog  = Math.min(1, (now - crossPauseSinceMs) / 400);
-    const indCx = W / 2;
-    const indCy = by + HUD_H + (elder ? 28 : 20) * scale;
-    const indR  = (elder ? 16 : 12) * scale;
-    const indLW = (elder ? 2.5 : 2) * scale;
-
-    ctx.beginPath();
-    ctx.arc(indCx, indCy, indR, 0, 2 * Math.PI);
-    ctx.strokeStyle = light ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)';
-    ctx.lineWidth = indLW;
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.arc(indCx, indCy, indR, -Math.PI / 2, -Math.PI / 2 + prog * 2 * Math.PI);
-    ctx.strokeStyle = light
-      ? `rgba(80,76,68,${0.45 + prog * 0.45})`
-      : `rgba(200,200,200,${0.45 + prog * 0.45})`;
-    ctx.lineWidth = indLW;
-    ctx.lineCap = 'round';
-    ctx.stroke();
-    ctx.lineCap = 'butt';
-  }
-
   ctx.restore();
 }
 
 // Dedicated 60fps loop for the HUD — decoupled from MediaPipe
 function hudLoop() {
-  const needsAnim = scheduler?.playing || (performance.now() - _flareMs < 200) || crossPauseSinceMs > 0;
+  const needsAnim = scheduler?.playing || (performance.now() - _flareMs < 200);
   if (_hudDirty || needsAnim) { drawMetronomeHUD(); _hudDirty = false; }
   requestAnimationFrame(hudLoop);
 }
@@ -872,33 +950,6 @@ async function startCamera(){
       known.left.fingerVisible=!!(lFinger&&lFinger.visibility>0.3);
 
       const now=performance.now();
-
-      if(!countdownActive&&scheduler&&scheduler.playing&&!isPaused&&!autoPaused){
-        const el=lm&&lm[3], er=lm&&lm[4];
-        const wl=known.left.lm, wr=known.right.lm;
-        const crossGesture=el&&er&&wl&&wr&&wl.y<el.y&&wr.y<er.y;
-        if(crossGesture){
-          if(crossPauseSinceMs===0)crossPauseSinceMs=now;
-          if(now-crossPauseSinceMs>=150){
-            crossPauseSinceMs=0;
-            autoPaused=true;scheduler.pause();_hudDirty=true;
-          }
-        }else{
-          crossPauseSinceMs=0;
-        }
-      }else if(!autoPaused&&!isPaused){
-        crossPauseSinceMs=0;
-      }
-      if(autoPaused&&!isPaused&&!fistPaused&&scheduler){
-        const el=lm&&lm[3], er=lm&&lm[4];
-        const wl=known.left.lm, wr=known.right.lm;
-        const resumeGesture=el&&er&&wl&&wr&&wl.y>el.y&&wr.y>er.y;
-        if(resumeGesture){
-          autoPaused=false;
-          Tone.start();
-          scheduler.resume(0.1);_hudDirty=true;
-        }
-      }
 
       // ── HANDS (fist cut-off) ──
       let leftLm=null;
@@ -1116,16 +1167,8 @@ async function startCamera(){
         ctx.font=`bold ${elder?52:36}px Cormorant Garamond, serif`;
         ctx.fillStyle='rgba(224,82,82,0.88)';
         ctx.shadowColor='rgba(224,82,82,0.55)';ctx.shadowBlur=12;
-        ctx.fillText('✕ 截止',W/2,H/2);
+        ctx.fillText(STRINGS[currentLang].cutoff,W/2,H/2);
         ctx.shadowBlur=0;
-        ctx.restore();
-      }else if(autoPaused&&!fermataPaused){
-        ctx.save();
-        ctx.textAlign='center';ctx.textBaseline='middle';
-        ctx.font=`bold ${elder?52:36}px Cormorant Garamond, serif`;
-        ctx.fillStyle='rgba(220,220,220,0.88)';
-        ctx.shadowColor='rgba(0,0,0,0.55)';ctx.shadowBlur=12;
-        ctx.fillText('停止',W/2,H/2);
         ctx.restore();
       }
       if(fermataPaused){
@@ -1134,7 +1177,7 @@ async function startCamera(){
         ctx.font=`bold ${elder?52:36}px Cormorant Garamond, serif`;
         ctx.fillStyle='rgba(80,160,255,0.88)';
         ctx.shadowColor='rgba(80,160,255,0.55)';ctx.shadowBlur=12;
-        ctx.fillText('𝄐 延音',W/2,H/2);
+        ctx.fillText(STRINGS[currentLang].fermata,W/2,H/2);
         ctx.shadowBlur=0;
         ctx.restore();
       }
