@@ -51,6 +51,9 @@ html[data-fontsize="large"] .beat-flash { transition: opacity 0.3s ease-out; }
 html[data-fontsize="large"] .footer-progress { height: 8px; border-radius: 4px; }
 html[data-fontsize="large"] .footer-fill { border-radius: 4px; }
 html[data-fontsize="large"] .countdown-num { font-size: 14rem; }
+html[data-fontsize="large"] .help-dropdown {
+  width: 420px;
+}
 [data-theme="light"] {
   --bg:           #f4f1eb;
   --surface:      #ffffff;
@@ -302,6 +305,8 @@ kbd { background: var(--border); color: var(--text); padding: 1px 6px; border-ra
   z-index: 100;
   box-shadow: 0 8px 24px rgba(0,0,0,0.3);
   flex-direction: column; gap: 14px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
 }
 .help-dropdown.open { display: flex; }
 .help-section { display: flex; flex-direction: column; gap: 6px; }
