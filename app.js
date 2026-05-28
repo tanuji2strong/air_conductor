@@ -168,6 +168,7 @@ let fistPaused = false, fistSinceMs = 0, fistResumeCooldownMs = 0;
 let pinchSinceMs = 0, fermataPaused = false;
 let fermataGain = null;
 let fermataSustainSynth = null;
+let fermataAttackTimer = null;
 const FIST_HOLD_MS = 300;
 const FIST_COOLDOWN = 800;
 let handFrameCounter = 0;
@@ -429,6 +430,7 @@ document.getElementById('fileInput').addEventListener('change',async(e)=>{
     instrument=sampler;
     instrument.connect(fermataGain);
 
+    if (fermataSustainSynth) fermataSustainSynth.releaseAll();
     if (fermataSustainSynth) {
       fermataSustainSynth.dispose();
       fermataSustainSynth = null;
@@ -955,51 +957,77 @@ async function startCamera(){
               // Velocity 0.5 is moderate — the -20 dB volume on the synth
               // itself is what keeps it quiet, not the velocity value.
               if (fermataActiveNotes.length > 0) {
-                fermataSustainSynth.triggerAttack(
-                  fermataActiveNotes,
-                  Tone.now() + 0.15,
-                  0.5
-                );
+                fermataAttackTimer = setTimeout(() => {
+                  if (fermataSustainSynth && fermataActiveNotes?.length > 0) {
+                    fermataSustainSynth.triggerAttack(
+                      fermataActiveNotes,
+                      Tone.now(),   // schedule immediately since we are already
+                                    // 150ms later
+                      0.5
+                    );
+                  }
+                  fermataAttackTimer = null;
+                }, 150);
               }
 
               _hudDirty = true;
             }
           }else{
             if(fermataPaused){
-              fermataPaused = false;
-              pinchSinceMs = 0;
-
-              if (fermataSustainSynth && fermataActiveNotes?.length > 0) {
-                // Trigger the 400ms release envelope on the synth.
-                // The envelope fades it out naturally — no fermataGain
-                // manipulation needed.
-                fermataSustainSynth.triggerRelease(
-                  fermataActiveNotes,
-                  Tone.now()
-                );
-
-                const _rel = [...fermataActiveNotes];
+              if (fermataAttackTimer !== null) {
+                clearTimeout(fermataAttackTimer);
+                fermataAttackTimer = null;
+                // The attack never fired so there is nothing to release.
+                // Skip the triggerRelease path entirely and just resume.
                 fermataActiveNotes = null;
-
-                // Wait 450ms — slightly longer than the 400ms release
-                // envelope — so the synth is fully silent before new
-                // MIDI notes begin. This prevents harmonic overlap
-                // between the fading fermata and the resumed playback.
-                setTimeout(() => {
-                  Tone.start().then(() => {
-                    if (scheduler) scheduler.resume(0.1);
-                  });
-                }, 450);
-
-              } else {
-                // No notes were captured — resume immediately.
-                fermataActiveNotes = null;
+                fermataPaused = false;
+                pinchSinceMs = 0;
                 Tone.start().then(() => {
                   if (scheduler) scheduler.resume(0.1);
                 });
-              }
+                _hudDirty = true;
+              } else {
+                fermataPaused = false;
+                pinchSinceMs = 0;
 
-              _hudDirty = true;
+                if (fermataSustainSynth && fermataActiveNotes?.length > 0) {
+                  // Trigger the 400ms release envelope on the synth.
+                  // The envelope fades it out naturally — no fermataGain
+                  // manipulation needed.
+                  fermataSustainSynth.triggerRelease(
+                    fermataActiveNotes,
+                    Tone.now()
+                  );
+
+                  const _rel = [...fermataActiveNotes];
+                  fermataActiveNotes = null;
+
+                  // Wait 450ms — slightly longer than the 400ms release
+                  // envelope — so the synth is fully silent before new
+                  // MIDI notes begin. This prevents harmonic overlap
+                  // between the fading fermata and the resumed playback.
+                  setTimeout(() => {
+                    Tone.start().then(() => {
+                      if (scheduler) scheduler.resume(0.1);
+                    });
+                  }, 450);
+
+                  // Safety: ensure no voices are left running after the
+                  // 400ms release envelope completes.
+                  setTimeout(() => {
+                    if (fermataSustainSynth) fermataSustainSynth.releaseAll();
+                  }, 500);
+
+                } else {
+                  // No notes were captured — resume immediately.
+                  fermataActiveNotes = null;
+                  Tone.start().then(() => {
+                    if (scheduler) scheduler.resume(0.1);
+                  });
+                }
+
+                _hudDirty = true;
+              }
             }else{
               pinchSinceMs=0;
             }
