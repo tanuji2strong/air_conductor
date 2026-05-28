@@ -74,6 +74,13 @@ class AutoScheduler {
     this.nextBeatAudioTime=Tone.now()+delayS;
   }
   pause(){this.playing=false;this._stopAll();}
+  pauseOnly(){
+    // Stops the scheduler from advancing through the score
+    // but intentionally does NOT call _stopAll() or
+    // releaseAll(). This lets currently-sounding sampler
+    // notes continue their natural decay into the sustain synth.
+    this.playing = false;
+  }
   resume(delayS=0.08){
     this.nextBeatAudioTime=Tone.now()+delayS;
     this.playing=true;
@@ -160,6 +167,7 @@ const GAIN_MAX = 2;
 let fistPaused = false, fistSinceMs = 0, fistResumeCooldownMs = 0;
 let pinchSinceMs = 0, fermataPaused = false;
 let fermataGain = null;
+let fermataSustainSynth = null;
 const FIST_HOLD_MS = 300;
 const FIST_COOLDOWN = 800;
 let handFrameCounter = 0;
@@ -420,6 +428,34 @@ document.getElementById('fileInput').addEventListener('change',async(e)=>{
     fermataGain = new Tone.Volume(0).toDestination();
     instrument=sampler;
     instrument.connect(fermataGain);
+
+    if (fermataSustainSynth) {
+      fermataSustainSynth.dispose();
+      fermataSustainSynth = null;
+    }
+
+    // Triangle wave is the warmest, most piano-adjacent oscillator
+    // type available in Tone.js without additional processing.
+    // attack: 0.15 means the synth takes 150ms to reach full
+    // amplitude — slow enough that the piano attack passes before
+    // the synth becomes perceptible.
+    // sustain: 1.0 means the amplitude holds completely flat for
+    // as long as the note is held, which is the entire point.
+    // release: 0.4 gives a gentle 400ms fade on pinch release,
+    // matching the feel of a piano's natural decay tail.
+    // volume: -20 keeps the synth sitting quietly underneath the
+    // piano rather than replacing it — the listener should perceive
+    // "chord still present" not "different instrument appeared".
+    fermataSustainSynth = new Tone.PolySynth(Tone.Synth, {
+      oscillator: { type: 'triangle' },
+      envelope: {
+        attack: 0.15,
+        decay: 0.0,
+        sustain: 1.0,
+        release: 0.4
+      },
+      volume: -20
+    }).connect(fermataGain);
 
     await Tone.loaded();
 
@@ -755,7 +791,6 @@ async function startCamera(){
     }
 
     let lastHandResult = {landmarks:[],handedness:[]};
-    let fermataSynth = null;
     let fermataActiveNotes = null;
 
     function isPinch(lm){
@@ -899,37 +934,72 @@ async function startCamera(){
           if(isPinch(leftLm)){
             if(pinchSinceMs===0)pinchSinceMs=now;
             if(now-pinchSinceMs>=20&&!fermataPaused){
-              fermataPaused=true;
-              if(scheduler)scheduler.pause();
+              fermataPaused = true;
+
+              // pauseOnly() freezes score position without cutting audio.
+              // The sampler notes keep decaying naturally.
+              scheduler.pauseOnly();
+
+              // Harvest the chord exactly as before — do not change this.
               const audioNow = Tone.now();
-              const NOTE_SUSTAIN = scheduler ? Math.max(0.6, scheduler.beatS * 1.2) : 0.6;
+              const NOTE_SUSTAIN = scheduler
+                ? Math.max(0.6, scheduler.beatS * 1.2)
+                : 0.6;
               fermataActiveNotes = Array.from(scheduler.lastChord.entries())
                 .filter(([, t]) => t <= audioNow && audioNow - t < NOTE_SUSTAIN)
                 .map(([n]) => n);
-              if(fermataActiveNotes.length > 0){
-                fermataGain.volume.value = -40;
-                scheduler.inst.triggerAttack(fermataActiveNotes, audioNow + 0.02, 0.01);
-                fermataGain.volume.rampTo(0, 0.08);
-                fermataSynth = true;
+
+              // Delay the synth attack by 150ms so the piano's own attack
+              // transient fully passes before the synth becomes audible.
+              // This prevents the listener from hearing two distinct onsets.
+              // Velocity 0.5 is moderate — the -20 dB volume on the synth
+              // itself is what keeps it quiet, not the velocity value.
+              if (fermataActiveNotes.length > 0) {
+                fermataSustainSynth.triggerAttack(
+                  fermataActiveNotes,
+                  Tone.now() + 0.15,
+                  0.5
+                );
               }
-              _hudDirty=true;
+
+              _hudDirty = true;
             }
           }else{
             if(fermataPaused){
-              fermataPaused=false;pinchSinceMs=0;
-              if(fermataSynth && scheduler?.inst){
-                fermataGain.volume.rampTo(-40, 0.05);
-                const _rel=fermataActiveNotes?.length>0?[...fermataActiveNotes]:null;
-                setTimeout(()=>{
-                  if(_rel)scheduler.inst.triggerRelease(_rel,Tone.now());
-                  if(fermataGain)fermataGain.volume.value=0;
-                  Tone.start().then(()=>{if(scheduler)scheduler.resume(0.1);});
-                },60);
-                fermataSynth=null;fermataActiveNotes=null;
-              }else{
-                Tone.start().then(()=>{if(scheduler)scheduler.resume(0.1);});
+              fermataPaused = false;
+              pinchSinceMs = 0;
+
+              if (fermataSustainSynth && fermataActiveNotes?.length > 0) {
+                // Trigger the 400ms release envelope on the synth.
+                // The envelope fades it out naturally — no fermataGain
+                // manipulation needed.
+                fermataSustainSynth.triggerRelease(
+                  fermataActiveNotes,
+                  Tone.now()
+                );
+
+                const _rel = [...fermataActiveNotes];
+                fermataActiveNotes = null;
+
+                // Wait 450ms — slightly longer than the 400ms release
+                // envelope — so the synth is fully silent before new
+                // MIDI notes begin. This prevents harmonic overlap
+                // between the fading fermata and the resumed playback.
+                setTimeout(() => {
+                  Tone.start().then(() => {
+                    if (scheduler) scheduler.resume(0.1);
+                  });
+                }, 450);
+
+              } else {
+                // No notes were captured — resume immediately.
+                fermataActiveNotes = null;
+                Tone.start().then(() => {
+                  if (scheduler) scheduler.resume(0.1);
+                });
               }
-              _hudDirty=true;
+
+              _hudDirty = true;
             }else{
               pinchSinceMs=0;
             }
