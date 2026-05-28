@@ -95,7 +95,7 @@ class AutoScheduler {
     if(this.muted||ev.channel===9||!this.inst)return;
     if(ev.type==='note_on'&&ev.velocity>0){
       const noteName=this._midiName(ev.note);
-      this.inst.triggerAttackRelease(noteName,1.5,when,(ev.velocity/127)*0.9*this.gainScale);
+      this.inst.triggerAttackRelease(noteName,0.35,when,(ev.velocity/127)*0.9*this.gainScale);
       this.lastChord.set(noteName, when);
     }
   }
@@ -410,25 +410,26 @@ document.getElementById('fileInput').addEventListener('change',async(e)=>{
     currentTS[0]=COMPOUND_MAP[currentTS[0]]??currentTS[0];
     if(![[2,4],[3,4],[4,4]].some(t=>t[0]===currentTS[0]&&t[1]===currentTS[1]))currentTS=[4,4];
 
-    if(instrument)instrument.disconnect();
-    const sampler=new Tone.Sampler({
-      urls:{
-        A0:'A0.mp3',C1:'C1.mp3','D#1':'Ds1.mp3','F#1':'Fs1.mp3',
-        A1:'A1.mp3',C2:'C2.mp3','D#2':'Ds2.mp3','F#2':'Fs2.mp3',
-        A2:'A2.mp3',C3:'C3.mp3','D#3':'Ds3.mp3','F#3':'Fs3.mp3',
-        A3:'A3.mp3',C4:'C4.mp3','D#4':'Ds4.mp3','F#4':'Fs4.mp3',
-        A4:'A4.mp3',C5:'C5.mp3','D#5':'Ds5.mp3','F#5':'Fs5.mp3',
-        A5:'A5.mp3',C6:'C6.mp3','D#6':'Ds6.mp3','F#6':'Fs6.mp3',
-        A6:'A6.mp3',C7:'C7.mp3','D#7':'Ds7.mp3','F#7':'Fs7.mp3',
-        A7:'A7.mp3',C8:'C8.mp3'
-      },
-      release:1,
-      baseUrl:'https://tonejs.github.io/audio/salamander/',
-    });
+    if(instrument)instrument.dispose();
     if(fermataGain)fermataGain.dispose();
     fermataGain = new Tone.Volume(0).toDestination();
-    instrument=sampler;
-    instrument.connect(fermataGain);
+    instrument = new Tone.PolySynth(Tone.Synth, {
+      oscillator: {
+        type: 'fattriangle',  // 'fattriangle' layers multiple
+                              // detuned triangle waves for organ
+                              // body and warmth
+        count: 3,             // three layered oscillators
+        spread: 20            // slight detune spread in cents for
+                              // fullness
+      },
+      envelope: {
+        attack:  0.01,   // fast attack like an organ key press
+        decay:   0.0,    // no decay — organ sustains immediately
+        sustain: 1.0,    // full amplitude while key is held
+        release: 0.3     // short release so notes do not blur
+      },
+      volume: -12
+    }).connect(fermataGain);
 
     if (fermataSustainSynth) fermataSustainSynth.releaseAll();
     if (fermataSustainSynth) {
@@ -449,17 +450,21 @@ document.getElementById('fileInput').addEventListener('change',async(e)=>{
     // piano rather than replacing it — the listener should perceive
     // "chord still present" not "different instrument appeared".
     fermataSustainSynth = new Tone.PolySynth(Tone.Synth, {
-      oscillator: { type: 'triangle' },
+      oscillator: {
+        type: 'fattriangle',
+        count: 3,
+        spread: 20
+      },
       envelope: {
-        attack: 0.15,
-        decay: 0.0,
+        attack:  0.15,
+        decay:   0.0,
         sustain: 1.0,
         release: 0.4
       },
       volume: -20
     }).connect(fermataGain);
 
-    await Tone.loaded();
+    await Tone.start();
 
     _prevBeatMs=0;_nextBeatMs=0;_nextBeatNum=1;
     handState.left ={poseBuf:[],wasAboveHigh:false,wasAboveHighTimestamp:0,peakSpeed:0,trail:[]};
