@@ -180,22 +180,6 @@ function toggleTheme(){
   document.getElementById('themeBtn').textContent=light?'☀':'☾';
 }
 function isLight(){return document.documentElement.dataset.theme==='light';}
-function isElderMode(){return document.documentElement.hasAttribute('data-elder');}
-
-function toggleElderMode(){
-  const html=document.documentElement;
-  const active=html.hasAttribute('data-elder');
-  if(active){
-    html.removeAttribute('data-elder');
-    localStorage.removeItem('airConductor_elder');
-  }else{
-    html.setAttribute('data-elder','');
-    localStorage.setItem('airConductor_elder','1');
-  }
-  const btn=document.getElementById('elderBtn');
-  if(btn)btn.classList.toggle('active',!active);
-  _hudDirty=true;
-}
 
 function toggleHelp(){
   const d=document.getElementById('helpDropdown');
@@ -495,7 +479,7 @@ function drawMetronomeHUD() {
   ctx.clearRect(0, 0, W, H);
 
   const light = isLight();
-  const elder = isElderMode();
+  const elder = document.documentElement.getAttribute('data-fontsize') === 'large';
   const gold  = light ? '#6a7480' : '#b0b8c4';
 
   const HUD_W = (elder ? 300 : 220) * scale;
@@ -959,7 +943,7 @@ async function startCamera(){
       ctx.drawImage(video,0,0,W,H);
       ctx.restore();
 
-      const elder=isElderMode();
+      const elder = document.documentElement.getAttribute('data-fontsize') === 'large';
       for(const side of SIDES){
         const k=known[side];
         if(!k.lm)continue;
