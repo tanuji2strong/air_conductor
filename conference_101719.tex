@@ -642,22 +642,24 @@ falls below 25\% of hand size:
   \label{eq:pinch}
 \end{equation}
 
-\noindent A pinch held for $\geq 20\,\text{ms}$ induces a fermata. The
-entry sequence is: (1) \texttt{scheduler.pauseOnly()}---which freezes
-score advancement without invoking \texttt{releaseAll()}, so
+\noindent A pinch held for $\geq 20\,\text{ms}$ while the scheduler is
+playing induces a fermata; the \texttt{scheduler.playing} guard
+prevents accidental activation during the pre-start waiting period,
+where an inadvertent pinch would otherwise invoke
+\texttt{scheduler.resume()} and start playback prematurely.
+The entry sequence is: (1) \texttt{scheduler.pauseOnly()}---which
+freezes score advancement without invoking \texttt{releaseAll()}, so
 currently-sounding notes continue to decay through their natural release
-envelopes; (2) identify recently fired notes from
-\texttt{scheduler.lastChord}---a
-\texttt{Map$\langle$noteName, audioTime$\rangle$} accumulating all
-note-on events---by selecting entries where
-$t_{\text{sched}} \leq t_{\text{now}}$ and
-$t_{\text{now}} - t_{\text{sched}} < \text{NOTE\_SUSTAIN}$, with
-\begin{equation*}
-  \text{NOTE\_SUSTAIN} = \max(0.6,\; I \times 1.2) \;\text{seconds};
-\end{equation*}
-the 0.6\,s lower bound ensures chord capture at tempos up to 100\,BPM,
-where the beat interval $I$ falls below 0.6\,s and the $1.2 \times I$
-term alone would be insufficient to capture recently triggered notes;
+envelopes; (2) identify the current chord from
+\texttt{scheduler.beatSnapshots}---a list of per-beat note sets appended
+by \texttt{\_scheduleBeat} at pre-scheduling time, each tagged with its
+scheduled audio fire time $t_{\text{beat}}$---by selecting the most
+recent snapshot whose $t_{\text{beat}} \leq t_{\text{now}}$. Indexing
+by beat rather than by individual note avoids two hazards of a
+note-level map: false exclusion of common-tone notes whose entries are
+overwritten by the 150\,ms lookahead pre-scheduling of the next beat,
+and false inclusion of previous-beat notes through an overly wide
+staleness window;
 (3) if at least one note is captured, schedule a
 \texttt{triggerAttack} on \texttt{fermataSustainSynth} at velocity~0.5
 after a 150\,ms delay. The delay ensures the main instrument's onset
