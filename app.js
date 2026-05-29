@@ -615,15 +615,13 @@ document.getElementById('fileInput').addEventListener('change',async(e)=>{
 // ═══════════════════════════════════════════
 function drawMetronomeHUD() {
   const hudCanvas = elHudCanvas;
-  const camCanvas = elCamCanvas;
 
-  const W = hudCanvas.width  || 1280;
-  const H = hudCanvas.height || 720;
+  const dpr   = window.devicePixelRatio || 1;
+  const W     = (hudCanvas.width  || 1280) / dpr;
+  const H     = (hudCanvas.height || 720)  / dpr;
   const scale = Math.min(W / 1280, 0.75);
 
   const ctx = hudCanvas.getContext('2d');
-  ctx.clearRect(0, 0, W, H);
-
   const light = isLight();
   const elder = document.documentElement.getAttribute('data-fontsize') === 'large';
   const gold  = light ? '#6a7480' : '#b0b8c4';
@@ -633,6 +631,8 @@ function drawMetronomeHUD() {
   const bx = (W - HUD_W) / 2, by = 8 * scale;
 
   ctx.save();
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
 
   // Backdrop
   ctx.fillStyle = light ? 'rgba(244,241,235,0.92)' : 'rgba(7,7,15,0.86)';
@@ -790,6 +790,18 @@ function hudLoop() {
 }
 requestAnimationFrame(hudLoop);
 
+function resizeHudCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  const w   = Math.round(elHudCanvas.clientWidth  * dpr);
+  const h   = Math.round(elHudCanvas.clientHeight * dpr);
+  if (w > 0 && h > 0 && (elHudCanvas.width !== w || elHudCanvas.height !== h)) {
+    elHudCanvas.width  = w;
+    elHudCanvas.height = h;
+    _hudDirty = true;
+  }
+}
+new ResizeObserver(resizeHudCanvas).observe(elHudCanvas);
+
 
 // ═══════════════════════════════════════════
 //  MEDIAPIPE CAMERA
@@ -887,15 +899,14 @@ async function startCamera(){
     }
 
     const stream=await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:'user'}
+      video:{facingMode:'user', width:{ideal:1280}, height:{ideal:720}}
     });
     video.srcObject=stream;
     await new Promise(resolve=>video.onloadedmetadata=resolve);
     video.play();
     canvas.width  = video.videoWidth  || 1280;
     canvas.height = video.videoHeight || 720;
-    elHudCanvas.width  = canvas.width;
-    elHudCanvas.height = canvas.height;
+    resizeHudCanvas();
 
     function detect(){
       if(video.readyState<2){requestAnimationFrame(detect);return;}
