@@ -14,7 +14,8 @@
       "WebFetch(domain:cdn.jsdelivr.net)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:storage.googleapis.com)",
-      "WebFetch(domain:mediapipe-studio.webapps.google.com)"
+      "WebFetch(domain:mediapipe-studio.webapps.google.com)",
+      "WebSearch"
     ]
   }
 }

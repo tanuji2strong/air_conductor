@@ -9,6 +9,9 @@
 \usepackage{stfloats}
 \usepackage[hidelinks]{hyperref}
 \usepackage{url}
+\usepackage[font=footnotesize,labelfont=rm]{caption}
+\usepackage{subcaption}
+\setlength{\emergencystretch}{1em}
 \usepackage{tikz}
 \usetikzlibrary{positioning, arrows.meta, fit, backgrounds}
 \def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
@@ -162,13 +165,10 @@ approach can achieve high gesture recognition accuracy on commodity
 hardware, it imposes a working-memory load that may limit engagement
 for users with cognitive difficulties or no prior musical training.
 
-Air Conductor departs from this paradigm. Rather than requiring the
-user to memorise a gesture-to-pitch mapping, it places the user in the
-role of conductor: all pitch decisions are delegated to the loaded MIDI
-score, and the user controls only temporal and dynamic properties.
-This design is further distinguished by articulation-level gestures
-(fermata, cut-off) that operate directly on the audio engine's internal
-state, a capability absent from discrete-trigger playing systems.
+Air Conductor's design is further distinguished by articulation-level
+gestures (fermata, cut-off) that operate directly on the audio engine's
+internal state, a capability absent from discrete-trigger playing
+systems.
 
 \subsection{Gesture-Based Music Control}
 
@@ -552,7 +552,61 @@ approximately 3.2\,s, consistent with the duration of a natural arm
 raise or lower during expressive conducting. The gain is propagated to
 \texttt{scheduler.gainScale} each frame and applied as a velocity
 multiplier in note scheduling:
-$v_{\text{note}} = (v_{\text{midi}}/127) \times 0.9 \times g$.
+$v_{\text{note}} = (v_{\text{midi}}/127) \times 0.9 \times g$,
+where the $0.9$ headroom factor prevents clipping at maximum gain $g = 2.0$.
+
+\begin{figure*}[t!]
+  \centering
+  % ── Row 1 ──────────────────────────────────────────────────────
+  \begin{subfigure}[t]{0.23\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{PANELA}
+    \caption{Right-hand conducting stroke. Index-fingertip speed
+    (PoseLandmarker lm[20]) modulates tempo via EWMA ($\alpha=0.35$).}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.23\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{PANELB}
+    \caption{Left hand above shoulder (lm[11]). Gain increments
+    $+0.01$/frame toward $g=2.0$.}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.23\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{PANELC}
+    \caption{Left hand in neutral zone between shoulder (lm[11])
+    and hip (lm[23]). Gain unchanged.}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.23\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{PANELD}
+    \caption{Left hand below hip (lm[23]). Gain decrements
+    $-0.01$/frame toward $g=0.1$.}
+  \end{subfigure}
+
+  \vspace{0.8em}
+
+  % ── Row 2 ──────────────────────────────────────────────────────
+  \hspace*{0.12\textwidth}
+  \begin{subfigure}[t]{0.23\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{PANELE}
+    \caption{Left fist held $\geq$300\,ms triggers cut-off;
+    playback resumes 800\,ms after hand opens. (HandLandmarker)}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.23\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{PANELF}
+    \caption{Left pinch held $\geq$20\,ms triggers fermata with
+    chord sustain. (HandLandmarker)}
+  \end{subfigure}
+  \hspace*{0.12\textwidth}
+
+  \caption{Four-gesture vocabulary. Red highlights the active
+  landmark region. (a)--(d) use PoseLandmarker; (e)--(f) use
+  HandLandmarker.}
+  \label{fig:gestures}
+\end{figure*}
+
 
 \subsection{Fist Cut-Off}
 
@@ -573,7 +627,9 @@ landmark space. A confirmed fist held for $\geq 300\,\text{ms}$ invokes
 \texttt{scheduler.pause()} and \texttt{scheduler.\_stopAll()} (which
 calls \texttt{releaseAll()} on the synthesiser), setting
 \texttt{fistPaused = true}. Playback resumes 800\,ms after the hand
-opens.
+opens; this delay was determined empirically to allow the 300\,ms
+synthesiser release envelope to fully decay and to provide a perceptible
+pause before the next phrase begins.
 
 \subsection{Fermata Pinch}
 \label{sec:fermata}
@@ -621,27 +677,7 @@ sustain-synth voice is fully silent before new MIDI notes begin,
 preventing harmonic overlap between the fading fermata chord and
 resumed playback.
 
-Table~\ref{tab:gestures} summarises all four gestures.
 
-\begin{table*}[b!]
-  \caption{Four-Gesture Vocabulary}
-  \label{tab:gestures}
-  \centering
-  \begin{tabular}{p{2.2cm}p{1.5cm}p{2.8cm}p{10.0cm}}
-    \hline
-    \textbf{Gesture} & \textbf{Hand} & \textbf{Sensor} & \textbf{Effect} \\
-    \hline
-    Fingertip speed & Right & Pose lm[20] & Modulates playback tempo
-      (EWMA, $\alpha=0.35$) \\
-    Finger height & Left  & Pose lm[19,11,23] & Adjusts note velocity
-      ($\pm 0.01$/frame; full range in $\approx$3.2\,s at 60\,fps) \\
-    Fist          & Left  & Hand lm & Cut-off: stops all notes
-      (300\,ms hold; 800\,ms resume) \\
-    Pinch         & Left  & Hand lm & Fermata: sustains current chord
-      (20\,ms hold) \\
-    \hline
-  \end{tabular}
-\end{table*}
 
 \subsection{Heads-Up Display}
 
@@ -709,17 +745,12 @@ Gesture thresholds, timing constants, and audio logic are unaffected.
 
 \subsection{Conducting Versus Playing Paradigm}
 
-Existing browser-based ADMIs implement a \emph{playing} paradigm in
-which the user triggers specific pitches or chords via discrete
-gestures. Air Conductor implements a \emph{conducting} paradigm in
-which the score handles all pitch decisions and the user controls only
-temporal and dynamic properties. Removing pitch selection from the
-interaction loop reduces the working-memory demand of the interface and
-supports engagement across a wider range of musical experience and
-cognitive ability levels. The conducting model further allows users with
-any level of musical training to participate meaningfully: a conductor
-need not know individual note names, only how to express faster, slower,
-louder, and softer.
+Removing pitch selection from the interaction loop reduces the
+working-memory demand of the interface and broadens engagement across
+musical experience and cognitive ability levels. A conductor need not
+know individual note names---only how to express faster, slower,
+louder, and softer---making the system accessible to users with any
+level of musical training.
 
 \subsection{Gesture Vocabulary Design}
 
@@ -786,8 +817,7 @@ beat timing governed by the Web Audio API hardware clock independent of
 MediaPipe inference latency. A CSS-only three-level font-size control,
 whose large tier serves as a complete elder accessibility profile,
 and a bilingual (Traditional Chinese\,/\,English) interface toggle
-together localise and scale the interface without modifying any gesture
-logic or thresholds.
+together localise and scale the interface.
 
 Future work will pursue: (1) directional stroke classification to
 distinguish standard conducting beat patterns; (2) full MIDI tempo-map
@@ -869,9 +899,9 @@ panacea for elderly people?''
 pp. 41--50, 2012.
 
 \bibitem{rw13}
-P. Adenot and C. Wilson,
+P. Adenot and H. Choi,
 ``Web Audio API,'' W3C Recommendation,
-World Wide Web Consortium, Dec. 2021. [Online]. Available:
+World Wide Web Consortium, Jun. 2021. [Online]. Available:
 \url{https://www.w3.org/TR/webaudio/}
 
 \bibitem{rw14}
