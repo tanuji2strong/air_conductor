@@ -1019,7 +1019,7 @@ async function startCamera(){
         if(!fistPaused&&fistSinceMs===0&&leftLm){
           if(isPinch(leftLm)){
             if(pinchSinceMs===0)pinchSinceMs=now;
-            if(now-pinchSinceMs>=20&&!fermataPaused){
+            if(now-pinchSinceMs>=20&&!fermataPaused&&scheduler&&scheduler.playing){
               fermataPaused = true;
 
               // pauseOnly() freezes score position without cutting audio.
