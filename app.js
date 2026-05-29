@@ -505,6 +505,7 @@ function playAgain(){
 }
 function loadNewSong(){
   document.getElementById('songEndOverlay').style.display='none';
+  document.getElementById('fileInput').value='';
   document.getElementById('uploadOverlay').style.display='flex';
 }
 
