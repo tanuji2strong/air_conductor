@@ -70,7 +70,7 @@ together operate without modifying any gesture thresholds or
 application logic.
 The system is publicly available at
 \url{https://air-conductor.vercel.app/}; a demonstration video is at
-\url{https://youtu.be/KhBOaTDZv-4}.
+\url{https://youtu.be/aM03xxf_n18}.
 \end{abstract}
 
 % ---------------------------------------------
@@ -682,9 +682,12 @@ resumed playback.
 \subsection{Heads-Up Display}
 
 The HUD is rendered on a transparent HTML canvas element
-(\texttt{hudCanvas}), an overlay that shares dimensions with the camera
-feed canvas, driven by a third \texttt{requestAnimationFrame} loop
-fully decoupled from both the audio and vision loops. It shows:
+(\texttt{hudCanvas}), an overlay whose buffer is sized to the
+container's CSS layout dimensions scaled by
+\texttt{window.devicePixelRatio} and kept in sync by a
+\texttt{ResizeObserver}, driven by a third
+\texttt{requestAnimationFrame} loop fully decoupled from both the audio
+and vision loops. It shows:
 (a) a beat-anticipation arc sweeping clockwise from 12\,o'clock,
 driven by interpolation between the previous and next scheduled beat
 times; (b) a radial flare emitted when the current time crosses the
