@@ -23,8 +23,9 @@ const STRINGS = {
     helpShortcutTitle:  '鍵盤快捷鍵',
     helpShortcutBody:   '<kbd>Space</kbd> 暫停 / 繼續<br><kbd>R</kbd> 重新開始歌曲<br><kbd>M</kbd> 靜音 / 取消靜音<br><kbd>+</kbd> / <kbd>−</kbd> 調整靈敏度<br><kbd>L</kbd> 切換亮色模式',
     startTitle:         '點擊開始',
-    startBody:          '點擊畫面，開始 10 秒倒數<br>準備好跟上節拍！',
+    startBody:          '點擊畫面，開始 5 秒倒數<br>準備好跟上節拍！',
     countdownSub:       '準備好跟上節拍！',
+    cameraLoadingText:  '正在啟動相機…',
     uploadOverlayTitle: '空氣指揮家',
     uploadOverlayBody:  '載入 MIDI 檔案——音樂會自動播放。',
     uploadOverlayBtn:   '載入 MIDI 檔案',
@@ -56,8 +57,9 @@ const STRINGS = {
     helpShortcutTitle:  'Keyboard Shortcuts',
     helpShortcutBody:   '<kbd>Space</kbd> Pause / Resume<br><kbd>R</kbd> Restart song<br><kbd>M</kbd> Mute / Unmute<br><kbd>+</kbd> / <kbd>−</kbd> Adjust sensitivity<br><kbd>L</kbd> Toggle light mode',
     startTitle:         'Click to Start',
-    startBody:          'Click the screen to begin a 10-second countdown<br>Get ready to follow the beat!',
+    startBody:          'Click the screen to begin a 5-second countdown<br>Get ready to follow the beat!',
     countdownSub:       'Get ready to follow the beat!',
+    cameraLoadingText:  'Initialising camera…',
     uploadOverlayTitle: 'Air Conductor',
     uploadOverlayBody:  'Load a MIDI file — music plays automatically.',
     uploadOverlayBtn:   'Load MIDI File',
@@ -437,7 +439,7 @@ async function startCountdown(){
   const nm=document.getElementById('countdownNum');
   ov.style.display='flex';
   countdownActive=true;
-  for(let i=10;i>=1;i--){nm.textContent=i;await new Promise(r=>setTimeout(r,900));}
+  for(let i=5;i>=1;i--){nm.textContent=i;await new Promise(r=>setTimeout(r,900));}
   nm.textContent='♩';await new Promise(r=>setTimeout(r,600));
   ov.style.display='none';
   countdownActive=false;
@@ -589,16 +591,19 @@ document.getElementById('fileInput').addEventListener('change',async(e)=>{
     isPaused=false;
     const pb=document.getElementById('pauseBtn');
     if(pb){pb.disabled=true;pb.textContent='⏸';pb.title=STRINGS[currentLang].pauseTitle;}
-    // Show start overlay — countdown begins only on click
-    waitForStartClick();
-
-    // Start camera separately so a camera failure doesn't block audio
+    // First load: show loading state; startCamera() reveals the click overlay
+    // once the video stream and MediaPipe models are ready.
+    // Subsequent loads (camera already running): show click overlay directly.
     if(!cameraStarted){
-      try{ startCamera(); }
-      catch(camErr){
+      document.getElementById('cameraLoading').style.display='flex';
+      startCamera().catch(camErr=>{
+        document.getElementById('cameraLoading').style.display='none';
+        waitForStartClick();
         console.error('Camera/MediaPipe failed:',camErr);
         alert('相機無法啟動：'+camErr.message+'\n\n音樂仍會繼續播放。請開啟瀏覽器主控台查看詳細資訊。');
-      }
+      });
+    } else {
+      waitForStartClick();
     }
 
   }catch(err){
@@ -907,6 +912,8 @@ async function startCamera(){
     canvas.width  = video.videoWidth  || 1280;
     canvas.height = video.videoHeight || 720;
     resizeHudCanvas();
+    document.getElementById('cameraLoading').style.display='none';
+    waitForStartClick();
 
     function detect(){
       if(video.readyState<2){requestAnimationFrame(detect);return;}

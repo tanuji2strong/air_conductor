@@ -175,6 +175,29 @@ header h1 {
 .song-end-btn-new { border-color: var(--text-dim); color: var(--text-dim); }
 .song-end-btn-new:hover { background: var(--text-dim); color: var(--bg); }
 
+/* Camera-loading overlay */
+.camera-loading {
+  position: absolute; inset: 0;
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center; gap: 16px;
+  background: rgba(9,9,13,0.80); z-index: 19; pointer-events: none;
+}
+[data-theme="light"] .camera-loading { background: rgba(244,241,235,0.85); }
+.camera-loading .camera-loading-icon {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 5rem; color: var(--silver); line-height: 1;
+  text-shadow: 0 0 40px var(--silver-glow);
+  animation: cam-pulse 1.4s ease-in-out infinite;
+}
+.camera-loading p {
+  font-size: 0.72rem; color: var(--text-dim);
+  letter-spacing: 0.12em; text-transform: uppercase;
+}
+@keyframes cam-pulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.95); }
+  50%       { opacity: 1;   transform: scale(1.00); }
+}
+
 /* Start overlay */
 .start-overlay {
   position: absolute; inset: 0;
