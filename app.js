@@ -171,6 +171,7 @@ class AutoScheduler {
     this.bpm=analyzer.initialBpm; this.beatS=60/this.bpm;
     this.ts=[4,4]; this.playing=false; this.muted=false;
     this._AHEAD=0.15; this.gainScale=1.0; this.lastChord=new Map();
+    this.beatSnapshots=[];
     this.currentTick=0; this.eventIndex=0;
     this.nextBeatAudioTime=0; this._beatNum=1; this._songEndScheduled=false;
   }
@@ -194,7 +195,7 @@ class AutoScheduler {
   setSpeed(factor){
     this.beatS=(60/this.bpm)/factor;
   }
-  reset(){this.playing=false;this.currentTick=0;this.eventIndex=0;this._beatNum=1;this._songEndScheduled=false;this._stopAll();this.lastChord=new Map();}
+  reset(){this.playing=false;this.currentTick=0;this.eventIndex=0;this._beatNum=1;this._songEndScheduled=false;this._stopAll();this.lastChord=new Map();this.beatSnapshots=[];}
   _stopAll(){if(this.inst)this.inst.releaseAll();}
   _midiName(n){return['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'][n%12]+(Math.floor(n/12)-1);}
   _play(ev,when){
@@ -221,9 +222,18 @@ class AutoScheduler {
     const s=this.currentTick,e=s+this.a.tpb,evs=this.a.events;
     while(this.eventIndex<evs.length&&evs[this.eventIndex].absTick<s)this.eventIndex++;
     let i=this.eventIndex;
+    const beatNotes=[];
     while(i<evs.length&&evs[i].absTick<e){
       const ev=evs[i],frac=(ev.absTick-s)/this.a.tpb;
-      this._play(ev,startTime+frac*this.beatS);i++;
+      this._play(ev,startTime+frac*this.beatS);
+      if(ev.type==='note_on'&&ev.velocity>0&&ev.channel!==9)
+        beatNotes.push(this._midiName(ev.note));
+      i++;
+    }
+    if(beatNotes.length>0){
+      this.beatSnapshots.push({notes:beatNotes,at:startTime});
+      const cutoff=Tone.now()-this.beatS*2;
+      this.beatSnapshots=this.beatSnapshots.filter(s=>s.at>cutoff);
     }
     this.currentTick=e;
     if(this.currentTick>=this.a.totalTicks&&!this._songEndScheduled){
@@ -1016,14 +1026,16 @@ async function startCamera(){
               // The sampler notes keep decaying naturally.
               scheduler.pauseOnly();
 
-              // Harvest the chord exactly as before — do not change this.
+              // Harvest from beat snapshots: find the most recent beat that
+              // has already fired (at <= audioNow). This avoids both the
+              // false-exclusion bug (overwritten common tones from lookahead
+              // pre-scheduling) and the false-inclusion bug (stale notes from
+              // the previous beat leaking in via NOTE_SUSTAIN > beatS).
               const audioNow = Tone.now();
-              const NOTE_SUSTAIN = scheduler
-                ? Math.max(0.6, scheduler.beatS * 1.2)
-                : 0.6;
-              fermataActiveNotes = Array.from(scheduler.lastChord.entries())
-                .filter(([, t]) => t <= audioNow && audioNow - t < NOTE_SUSTAIN)
-                .map(([n]) => n);
+              const firedSnap = scheduler.beatSnapshots
+                .filter(s => s.at <= audioNow)
+                .sort((a, b) => b.at - a.at)[0];
+              fermataActiveNotes = firedSnap ? firedSnap.notes.slice() : [];
 
               // Delay the synth attack by 150ms so the piano's own attack
               // transient fully passes before the synth becomes audible.
