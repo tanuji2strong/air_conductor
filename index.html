@@ -188,10 +188,8 @@
       btn.classList.toggle('active', btn.dataset.size === s);
     });
     setLang(currentLang);
-    if (!localStorage.getItem('airConductor_tutorialDone')) {
-      document.getElementById('uploadOverlay').style.display = 'none';
-      document.getElementById('langSelectOverlay').style.display = 'flex';
-    }
+    document.getElementById('uploadOverlay').style.display = 'none';
+    document.getElementById('langSelectOverlay').style.display = 'flex';
   })();
 </script>
 

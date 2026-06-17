@@ -423,7 +423,6 @@ function advanceTutorial() {
 }
 
 function completeTutorial() {
-  localStorage.setItem('airConductor_tutorialDone', '1');
   tutorialMode = false;
   tutorialStep = 0;
   const S = STRINGS[currentLang];
@@ -441,7 +440,6 @@ function onTutorialBegin() {
 }
 
 function skipTutorial() {
-  localStorage.setItem('airConductor_tutorialDone', '1');
   tutorialMode = false;
   tutorialStep = 0;
   document.getElementById('tutorialOverlay').style.display = 'none';
@@ -679,7 +677,6 @@ function loadNewSong(){
 document.getElementById('fileInput').addEventListener('change',async(e)=>{
   const file=e.target.files[0];if(!file)return;
   tutorialMode=false;tutorialStep=0;
-  localStorage.setItem('airConductor_tutorialDone','1');
   document.getElementById('tutorialOverlay').style.display='none';
   document.getElementById('langSelectOverlay').style.display='none';
   document.getElementById('startOverlay').style.display='none';
