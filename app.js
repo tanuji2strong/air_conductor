@@ -1,6 +1,49 @@
 'use strict';
 
 // ═══════════════════════════════════════════
+//  EVALUATION LOGGING  (remove before final deploy)
+// ═══════════════════════════════════════════
+const _evalLog = [];
+function _acLog(type, data) {
+  _evalLog.push({ t: Math.round(performance.now()), type, ...data });
+}
+window.acExport = () => {
+  const blob = new Blob([JSON.stringify(_evalLog, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'ac_eval_' + Date.now() + '.json';
+  a.click();
+};
+window.acSummary = () => {
+  const ictuses  = _evalLog.filter(e => e.type === 'ICTUS');
+  const fists    = _evalLog.filter(e => e.type === 'FIST_DETECTED');
+  const pinches  = _evalLog.filter(e => e.type === 'PINCH_DETECTED');
+  const volUps   = _evalLog.filter(e => e.type === 'VOL_UP');
+  const volDns   = _evalLog.filter(e => e.type === 'VOL_DOWN');
+  const fpsSamps = _evalLog.filter(e => e.type === 'FPS');
+  console.log('=== Air Conductor Evaluation Summary ===');
+  if (ictuses.length > 0) {
+    const withTgt = ictuses.filter(e => e.target > 0 && e.smoothed > 0);
+    const rmse = withTgt.length > 0
+      ? Math.sqrt(withTgt.reduce((s, e) => s + (e.smoothed - e.target) ** 2, 0) / withTgt.length)
+      : NaN;
+    const lats = ictuses.map(e => e.latencyMs).filter(v => v > 0);
+    const avgLat = lats.length > 0 ? lats.reduce((a, b) => a + b, 0) / lats.length : NaN;
+    const maxLat = lats.length > 0 ? Math.max(...lats) : NaN;
+    console.log(`Ictuses detected : ${ictuses.length}`);
+    console.log(`Tempo RMSE       : ${isNaN(rmse) ? 'n/a' : rmse.toFixed(1)} BPM  (n=${withTgt.length})`);
+    console.log(`Detection latency: mean ${isNaN(avgLat) ? 'n/a' : avgLat.toFixed(0)} ms  max ${isNaN(maxLat) ? 'n/a' : maxLat.toFixed(0)} ms`);
+  }
+  if (fpsSamps.length > 0) {
+    const avg = fpsSamps.reduce((s, e) => s + e.fps, 0) / fpsSamps.length;
+    console.log(`Vision loop FPS  : mean ${avg.toFixed(1)}  (${fpsSamps.length} samples)`);
+  }
+  console.log(`Fist cut-offs    : ${fists.length}   Fermata pinches: ${pinches.length}`);
+  console.log(`Volume raises    : ${volUps.length}   Volume lowers : ${volDns.length}`);
+  console.log('--- full log: window._evalLog  |  download: acExport() ---');
+};
+
+// ═══════════════════════════════════════════
 //  I18N STRINGS
 // ═══════════════════════════════════════════
 const STRINGS = {
@@ -518,6 +561,7 @@ function detectBeat(speed, frameT, state) {
     if(!state.wasAboveHigh){
       state.wasAboveHigh=true;
       state.wasAboveHighTimestamp=frameT;
+      state._onsetMs=frameT;
       state.peakSpeed=speed;
     }else if(speed>state.peakSpeed){
       state.peakSpeed=speed;
@@ -541,6 +585,7 @@ function detectBeat(speed, frameT, state) {
         bpmBuffer.push(clamped);
         if(bpmBuffer.length>BPM_BUFFER_SIZE)bpmBuffer.shift();
         avgBpm=bpmBuffer.reduce((a,b)=>a+b,0)/bpmBuffer.length;
+        _acLog('ICTUS',{raw:Math.round(rawBpm),smoothed:Math.round(smoothedBpm*10)/10,target:Math.round(bpm0),latencyMs:Math.round(frameT-(state._onsetMs||frameT))});
       }
       lastIctusMs=frameT;
     }
@@ -1069,6 +1114,8 @@ async function startCamera(){
 
     let lastHandResult = {landmarks:[],handedness:[]};
     let fermataActiveNotes = null;
+    let _fpsFrameCount = 0, _fpsLastLogT = 0;
+    let _lastVolZone = 'neutral';
 
     function isPinch(lm){
       const dx=lm[4].x-lm[8].x, dy=lm[4].y-lm[8].y;
@@ -1102,6 +1149,12 @@ async function startCamera(){
       const W=canvas.width,H=canvas.height;
       const timestamp=performance.now();
       frameTimestamp=timestamp;
+      _fpsFrameCount++;
+      if(_fpsLastLogT===0){_fpsLastLogT=timestamp;}
+      else if(timestamp-_fpsLastLogT>=5000){
+        _acLog('FPS',{fps:Math.round(_fpsFrameCount*1000/(timestamp-_fpsLastLogT))});
+        _fpsLastLogT=timestamp;_fpsFrameCount=0;
+      }
 
       // ── POSE ──
       const poseResult=poseLandmarker.detectForVideo(video,timestamp);
@@ -1148,9 +1201,13 @@ async function startCamera(){
         if(lFinger.y<lShoulder.y){
           gainScale=Math.min(GAIN_MAX,gainScale+GAIN_RATE);
           if(scheduler)scheduler.gainScale=gainScale;
+          if(_lastVolZone!=='up'){_lastVolZone='up';_acLog('VOL_UP',{gain:Math.round(gainScale*100)/100});}
         }else if(lFinger.y>lHip.y){
           gainScale=Math.max(GAIN_MIN,gainScale-GAIN_RATE);
           if(scheduler)scheduler.gainScale=gainScale;
+          if(_lastVolZone!=='down'){_lastVolZone='down';_acLog('VOL_DOWN',{gain:Math.round(gainScale*100)/100});}
+        }else{
+          _lastVolZone='neutral';
         }
         if(tutorialMode&&tutorialStep===2){
           if(lFinger.y<lShoulder.y&&!tutVolUpDone){tutVolUpDone=true;updateTutorialProgress();}
@@ -1213,6 +1270,7 @@ async function startCamera(){
           if(!fistPaused&&!isPaused&&scheduler&&scheduler.playing&&now-fistSinceMs>=FIST_HOLD_MS){
             scheduler.pause();scheduler._stopAll();
             autoPaused=true;fistPaused=true;_hudDirty=true;
+            _acLog('FIST_DETECTED',{holdMs:Math.round(now-fistSinceMs)});
           }
         }else{
           fistSinceMs=0;
@@ -1230,6 +1288,7 @@ async function startCamera(){
             if(pinchSinceMs===0)pinchSinceMs=now;
             if(now-pinchSinceMs>=20&&!fermataPaused&&scheduler&&scheduler.playing){
               fermataPaused = true;
+              _acLog('PINCH_DETECTED',{holdMs:Math.round(now-pinchSinceMs)});
 
               // pauseOnly() freezes score position without cutting audio.
               // The sampler notes keep decaying naturally.

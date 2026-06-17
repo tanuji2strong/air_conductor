@@ -1,0 +1,1790 @@
+[
+  {
+    "t": 11832,
+    "type": "VOL_DOWN",
+    "gain": 0.99
+  },
+  {
+    "t": 16254,
+    "type": "FPS",
+    "fps": 34
+  },
+  {
+    "t": 18903,
+    "type": "ICTUS",
+    "raw": 79,
+    "smoothed": 78.7,
+    "target": 120,
+    "latencyMs": 48
+  },
+  {
+    "t": 19701,
+    "type": "ICTUS",
+    "raw": 75,
+    "smoothed": 77.4,
+    "target": 120,
+    "latencyMs": 79
+  },
+  {
+    "t": 20167,
+    "type": "ICTUS",
+    "raw": 129,
+    "smoothed": 95.6,
+    "target": 120,
+    "latencyMs": 70
+  },
+  {
+    "t": 21286,
+    "type": "FPS",
+    "fps": 39
+  },
+  {
+    "t": 26289,
+    "type": "FPS",
+    "fps": 35
+  },
+  {
+    "t": 28230,
+    "type": "ICTUS",
+    "raw": 58,
+    "smoothed": 82.3,
+    "target": 120,
+    "latencyMs": 68
+  },
+  {
+    "t": 31053,
+    "type": "ICTUS",
+    "raw": 21,
+    "smoothed": 70.3,
+    "target": 120,
+    "latencyMs": 39
+  },
+  {
+    "t": 31290,
+    "type": "FPS",
+    "fps": 34
+  },
+  {
+    "t": 32218,
+    "type": "ICTUS",
+    "raw": 52,
+    "smoothed": 63.7,
+    "target": 120,
+    "latencyMs": 276
+  },
+  {
+    "t": 32470,
+    "type": "ICTUS",
+    "raw": 241,
+    "smoothed": 125.8,
+    "target": 120,
+    "latencyMs": 44
+  },
+  {
+    "t": 33053,
+    "type": "ICTUS",
+    "raw": 103,
+    "smoothed": 117.8,
+    "target": 120,
+    "latencyMs": 67
+  },
+  {
+    "t": 34758,
+    "type": "ICTUS",
+    "raw": 35,
+    "smoothed": 93.3,
+    "target": 120,
+    "latencyMs": 32
+  },
+  {
+    "t": 34988,
+    "type": "ICTUS",
+    "raw": 259,
+    "smoothed": 151.2,
+    "target": 120,
+    "latencyMs": 164
+  },
+  {
+    "t": 35305,
+    "type": "ICTUS",
+    "raw": 190,
+    "smoothed": 164.7,
+    "target": 120,
+    "latencyMs": 67
+  },
+  {
+    "t": 36331,
+    "type": "FPS",
+    "fps": 35
+  },
+  {
+    "t": 37130,
+    "type": "ICTUS",
+    "raw": 33,
+    "smoothed": 123.9,
+    "target": 120,
+    "latencyMs": 115
+  },
+  {
+    "t": 40445,
+    "type": "VOL_UP",
+    "gain": 0.11
+  },
+  {
+    "t": 41368,
+    "type": "FPS",
+    "fps": 35
+  },
+  {
+    "t": 42432,
+    "type": "VOL_DOWN",
+    "gain": 0.4
+  },
+  {
+    "t": 46383,
+    "type": "FPS",
+    "fps": 34
+  },
+  {
+    "t": 48427,
+    "type": "ICTUS",
+    "raw": 220,
+    "smoothed": 157.5,
+    "target": 120,
+    "latencyMs": 252
+  },
+  {
+    "t": 48692,
+    "type": "ICTUS",
+    "raw": 226,
+    "smoothed": 181.4,
+    "target": 120,
+    "latencyMs": 250
+  },
+  {
+    "t": 48927,
+    "type": "ICTUS",
+    "raw": 256,
+    "smoothed": 207.5,
+    "target": 120,
+    "latencyMs": 217
+  },
+  {
+    "t": 49196,
+    "type": "ICTUS",
+    "raw": 224,
+    "smoothed": 213.2,
+    "target": 120,
+    "latencyMs": 65
+  },
+  {
+    "t": 49506,
+    "type": "ICTUS",
+    "raw": 193,
+    "smoothed": 206,
+    "target": 120,
+    "latencyMs": 129
+  },
+  {
+    "t": 49781,
+    "type": "ICTUS",
+    "raw": 221,
+    "smoothed": 211.2,
+    "target": 120,
+    "latencyMs": 100
+  },
+  {
+    "t": 50172,
+    "type": "ICTUS",
+    "raw": 152,
+    "smoothed": 190.4,
+    "target": 120,
+    "latencyMs": 128
+  },
+  {
+    "t": 50446,
+    "type": "ICTUS",
+    "raw": 221,
+    "smoothed": 201,
+    "target": 120,
+    "latencyMs": 65
+  },
+  {
+    "t": 50782,
+    "type": "ICTUS",
+    "raw": 180,
+    "smoothed": 193.5,
+    "target": 120,
+    "latencyMs": 88
+  },
+  {
+    "t": 51196,
+    "type": "ICTUS",
+    "raw": 144,
+    "smoothed": 176.2,
+    "target": 120,
+    "latencyMs": 69
+  },
+  {
+    "t": 51413,
+    "type": "FPS",
+    "fps": 35
+  },
+  {
+    "t": 51513,
+    "type": "ICTUS",
+    "raw": 191,
+    "smoothed": 181.4,
+    "target": 120,
+    "latencyMs": 66
+  },
+  {
+    "t": 51945,
+    "type": "ICTUS",
+    "raw": 139,
+    "smoothed": 166.7,
+    "target": 120,
+    "latencyMs": 84
+  },
+  {
+    "t": 52263,
+    "type": "ICTUS",
+    "raw": 188,
+    "smoothed": 174.1,
+    "target": 120,
+    "latencyMs": 70
+  },
+  {
+    "t": 52628,
+    "type": "ICTUS",
+    "raw": 163,
+    "smoothed": 170,
+    "target": 120,
+    "latencyMs": 120
+  },
+  {
+    "t": 52922,
+    "type": "ICTUS",
+    "raw": 204,
+    "smoothed": 182,
+    "target": 120,
+    "latencyMs": 62
+  },
+  {
+    "t": 53518,
+    "type": "ICTUS",
+    "raw": 101,
+    "smoothed": 153.5,
+    "target": 120,
+    "latencyMs": 225
+  },
+  {
+    "t": 53947,
+    "type": "ICTUS",
+    "raw": 141,
+    "smoothed": 149.3,
+    "target": 120,
+    "latencyMs": 160
+  },
+  {
+    "t": 54284,
+    "type": "ICTUS",
+    "raw": 177,
+    "smoothed": 158.8,
+    "target": 120,
+    "latencyMs": 132
+  },
+  {
+    "t": 54575,
+    "type": "ICTUS",
+    "raw": 206,
+    "smoothed": 175.3,
+    "target": 120,
+    "latencyMs": 80
+  },
+  {
+    "t": 54983,
+    "type": "ICTUS",
+    "raw": 147,
+    "smoothed": 165.4,
+    "target": 120,
+    "latencyMs": 165
+  },
+  {
+    "t": 55310,
+    "type": "ICTUS",
+    "raw": 184,
+    "smoothed": 172.1,
+    "target": 120,
+    "latencyMs": 54
+  },
+  {
+    "t": 55552,
+    "type": "ICTUS",
+    "raw": 246,
+    "smoothed": 198,
+    "target": 120,
+    "latencyMs": 79
+  },
+  {
+    "t": 56429,
+    "type": "FPS",
+    "fps": 36
+  },
+  {
+    "t": 57183,
+    "type": "ICTUS",
+    "raw": 37,
+    "smoothed": 145.5,
+    "target": 120,
+    "latencyMs": 109
+  },
+  {
+    "t": 58778,
+    "type": "ICTUS",
+    "raw": 38,
+    "smoothed": 111.4,
+    "target": 120,
+    "latencyMs": 84
+  },
+  {
+    "t": 59009,
+    "type": "ICTUS",
+    "raw": 259,
+    "smoothed": 162.9,
+    "target": 120,
+    "latencyMs": 66
+  },
+  {
+    "t": 60279,
+    "type": "ICTUS",
+    "raw": 143,
+    "smoothed": 143.2,
+    "target": 120,
+    "latencyMs": 79
+  },
+  {
+    "t": 60699,
+    "type": "ICTUS",
+    "raw": 143,
+    "smoothed": 143.1,
+    "target": 120,
+    "latencyMs": 168
+  },
+  {
+    "t": 61316,
+    "type": "ICTUS",
+    "raw": 97,
+    "smoothed": 126.9,
+    "target": 120,
+    "latencyMs": 118
+  },
+  {
+    "t": 61446,
+    "type": "FPS",
+    "fps": 34
+  },
+  {
+    "t": 61570,
+    "type": "ICTUS",
+    "raw": 238,
+    "smoothed": 165.9,
+    "target": 120,
+    "latencyMs": 127
+  },
+  {
+    "t": 61648,
+    "type": "VOL_UP",
+    "gain": 0.24
+  },
+  {
+    "t": 61838,
+    "type": "ICTUS",
+    "raw": 223,
+    "smoothed": 186,
+    "target": 120,
+    "latencyMs": 84
+  },
+  {
+    "t": 62946,
+    "type": "ICTUS",
+    "raw": 54,
+    "smoothed": 139.9,
+    "target": 120,
+    "latencyMs": 125
+  },
+  {
+    "t": 66503,
+    "type": "FPS",
+    "fps": 47
+  },
+  {
+    "t": 68167,
+    "type": "ICTUS",
+    "raw": 81,
+    "smoothed": 119.2,
+    "target": 120,
+    "latencyMs": 137
+  },
+  {
+    "t": 68842,
+    "type": "ICTUS",
+    "raw": 89,
+    "smoothed": 108.6,
+    "target": 120,
+    "latencyMs": 103
+  },
+  {
+    "t": 69554,
+    "type": "ICTUS",
+    "raw": 85,
+    "smoothed": 100.2,
+    "target": 120,
+    "latencyMs": 116
+  },
+  {
+    "t": 70469,
+    "type": "ICTUS",
+    "raw": 66,
+    "smoothed": 88.1,
+    "target": 120,
+    "latencyMs": 128
+  },
+  {
+    "t": 71306,
+    "type": "ICTUS",
+    "raw": 71,
+    "smoothed": 82.3,
+    "target": 120,
+    "latencyMs": 84
+  },
+  {
+    "t": 71516,
+    "type": "FPS",
+    "fps": 30
+  },
+  {
+    "t": 72094,
+    "type": "ICTUS",
+    "raw": 76,
+    "smoothed": 80.2,
+    "target": 120,
+    "latencyMs": 166
+  },
+  {
+    "t": 72903,
+    "type": "ICTUS",
+    "raw": 75,
+    "smoothed": 78.2,
+    "target": 120,
+    "latencyMs": 240
+  },
+  {
+    "t": 73101,
+    "type": "ICTUS",
+    "raw": 295,
+    "smoothed": 154,
+    "target": 120,
+    "latencyMs": 178
+  },
+  {
+    "t": 73828,
+    "type": "ICTUS",
+    "raw": 82,
+    "smoothed": 128.9,
+    "target": 120,
+    "latencyMs": 139
+  },
+  {
+    "t": 74697,
+    "type": "ICTUS",
+    "raw": 69,
+    "smoothed": 108.1,
+    "target": 120,
+    "latencyMs": 208
+  },
+  {
+    "t": 75546,
+    "type": "ICTUS",
+    "raw": 70,
+    "smoothed": 94.8,
+    "target": 120,
+    "latencyMs": 168
+  },
+  {
+    "t": 76138,
+    "type": "ICTUS",
+    "raw": 101,
+    "smoothed": 97.1,
+    "target": 120,
+    "latencyMs": 162
+  },
+  {
+    "t": 76527,
+    "type": "FPS",
+    "fps": 31
+  },
+  {
+    "t": 76945,
+    "type": "ICTUS",
+    "raw": 75,
+    "smoothed": 89.2,
+    "target": 120,
+    "latencyMs": 88
+  },
+  {
+    "t": 77808,
+    "type": "ICTUS",
+    "raw": 69,
+    "smoothed": 82.3,
+    "target": 120,
+    "latencyMs": 107
+  },
+  {
+    "t": 78783,
+    "type": "ICTUS",
+    "raw": 61,
+    "smoothed": 75,
+    "target": 120,
+    "latencyMs": 190
+  },
+  {
+    "t": 79556,
+    "type": "ICTUS",
+    "raw": 78,
+    "smoothed": 75.9,
+    "target": 120,
+    "latencyMs": 100
+  },
+  {
+    "t": 80449,
+    "type": "ICTUS",
+    "raw": 67,
+    "smoothed": 73,
+    "target": 120,
+    "latencyMs": 78
+  },
+  {
+    "t": 81322,
+    "type": "ICTUS",
+    "raw": 69,
+    "smoothed": 71.5,
+    "target": 120,
+    "latencyMs": 157
+  },
+  {
+    "t": 81534,
+    "type": "FPS",
+    "fps": 31
+  },
+  {
+    "t": 82115,
+    "type": "ICTUS",
+    "raw": 75,
+    "smoothed": 72.8,
+    "target": 120,
+    "latencyMs": 121
+  },
+  {
+    "t": 82807,
+    "type": "ICTUS",
+    "raw": 87,
+    "smoothed": 77.7,
+    "target": 120,
+    "latencyMs": 166
+  },
+  {
+    "t": 83659,
+    "type": "ICTUS",
+    "raw": 71,
+    "smoothed": 75.3,
+    "target": 120,
+    "latencyMs": 92
+  },
+  {
+    "t": 84515,
+    "type": "ICTUS",
+    "raw": 70,
+    "smoothed": 73.6,
+    "target": 120,
+    "latencyMs": 156
+  },
+  {
+    "t": 85266,
+    "type": "ICTUS",
+    "raw": 79,
+    "smoothed": 75.5,
+    "target": 120,
+    "latencyMs": 101
+  },
+  {
+    "t": 86018,
+    "type": "ICTUS",
+    "raw": 80,
+    "smoothed": 77.2,
+    "target": 120,
+    "latencyMs": 156
+  },
+  {
+    "t": 86543,
+    "type": "FPS",
+    "fps": 32
+  },
+  {
+    "t": 87042,
+    "type": "ICTUS",
+    "raw": 59,
+    "smoothed": 70.7,
+    "target": 120,
+    "latencyMs": 210
+  },
+  {
+    "t": 87692,
+    "type": "ICTUS",
+    "raw": 91,
+    "smoothed": 77.9,
+    "target": 120,
+    "latencyMs": 165
+  },
+  {
+    "t": 88724,
+    "type": "ICTUS",
+    "raw": 58,
+    "smoothed": 71,
+    "target": 120,
+    "latencyMs": 121
+  },
+  {
+    "t": 89575,
+    "type": "ICTUS",
+    "raw": 71,
+    "smoothed": 70.8,
+    "target": 120,
+    "latencyMs": 89
+  },
+  {
+    "t": 90451,
+    "type": "ICTUS",
+    "raw": 68,
+    "smoothed": 69.9,
+    "target": 120,
+    "latencyMs": 66
+  },
+  {
+    "t": 91323,
+    "type": "ICTUS",
+    "raw": 69,
+    "smoothed": 69.6,
+    "target": 120,
+    "latencyMs": 105
+  },
+  {
+    "t": 91552,
+    "type": "FPS",
+    "fps": 32
+  },
+  {
+    "t": 92166,
+    "type": "ICTUS",
+    "raw": 72,
+    "smoothed": 70.3,
+    "target": 120,
+    "latencyMs": 110
+  },
+  {
+    "t": 93011,
+    "type": "ICTUS",
+    "raw": 71,
+    "smoothed": 70.5,
+    "target": 120,
+    "latencyMs": 165
+  },
+  {
+    "t": 93729,
+    "type": "ICTUS",
+    "raw": 83,
+    "smoothed": 75,
+    "target": 120,
+    "latencyMs": 139
+  },
+  {
+    "t": 94607,
+    "type": "ICTUS",
+    "raw": 68,
+    "smoothed": 72.6,
+    "target": 120,
+    "latencyMs": 118
+  },
+  {
+    "t": 95339,
+    "type": "ICTUS",
+    "raw": 83,
+    "smoothed": 76.2,
+    "target": 120,
+    "latencyMs": 86
+  },
+  {
+    "t": 96312,
+    "type": "ICTUS",
+    "raw": 61,
+    "smoothed": 71,
+    "target": 120,
+    "latencyMs": 175
+  },
+  {
+    "t": 96573,
+    "type": "FPS",
+    "fps": 33
+  },
+  {
+    "t": 97083,
+    "type": "ICTUS",
+    "raw": 78,
+    "smoothed": 73.6,
+    "target": 120,
+    "latencyMs": 171
+  },
+  {
+    "t": 97990,
+    "type": "ICTUS",
+    "raw": 66,
+    "smoothed": 70.8,
+    "target": 120,
+    "latencyMs": 108
+  },
+  {
+    "t": 98766,
+    "type": "ICTUS",
+    "raw": 77,
+    "smoothed": 73.2,
+    "target": 120,
+    "latencyMs": 85
+  },
+  {
+    "t": 99636,
+    "type": "ICTUS",
+    "raw": 69,
+    "smoothed": 71.6,
+    "target": 120,
+    "latencyMs": 184
+  },
+  {
+    "t": 100392,
+    "type": "ICTUS",
+    "raw": 79,
+    "smoothed": 74.3,
+    "target": 120,
+    "latencyMs": 187
+  },
+  {
+    "t": 101127,
+    "type": "ICTUS",
+    "raw": 82,
+    "smoothed": 76.9,
+    "target": 120,
+    "latencyMs": 46
+  },
+  {
+    "t": 101580,
+    "type": "FPS",
+    "fps": 32
+  },
+  {
+    "t": 101947,
+    "type": "ICTUS",
+    "raw": 73,
+    "smoothed": 75.6,
+    "target": 120,
+    "latencyMs": 109
+  },
+  {
+    "t": 102799,
+    "type": "ICTUS",
+    "raw": 71,
+    "smoothed": 73.9,
+    "target": 120,
+    "latencyMs": 194
+  },
+  {
+    "t": 103491,
+    "type": "ICTUS",
+    "raw": 86,
+    "smoothed": 78.1,
+    "target": 120,
+    "latencyMs": 203
+  },
+  {
+    "t": 104195,
+    "type": "ICTUS",
+    "raw": 86,
+    "smoothed": 80.9,
+    "target": 120,
+    "latencyMs": 101
+  },
+  {
+    "t": 104952,
+    "type": "ICTUS",
+    "raw": 78,
+    "smoothed": 80,
+    "target": 120,
+    "latencyMs": 38
+  },
+  {
+    "t": 105949,
+    "type": "ICTUS",
+    "raw": 61,
+    "smoothed": 73.3,
+    "target": 120,
+    "latencyMs": 208
+  },
+  {
+    "t": 106429,
+    "type": "ICTUS",
+    "raw": 124,
+    "smoothed": 90.8,
+    "target": 120,
+    "latencyMs": 166
+  },
+  {
+    "t": 106585,
+    "type": "FPS",
+    "fps": 31
+  },
+  {
+    "t": 107280,
+    "type": "ICTUS",
+    "raw": 71,
+    "smoothed": 83.8,
+    "target": 120,
+    "latencyMs": 116
+  },
+  {
+    "t": 108149,
+    "type": "ICTUS",
+    "raw": 69,
+    "smoothed": 78.6,
+    "target": 120,
+    "latencyMs": 121
+  },
+  {
+    "t": 108982,
+    "type": "ICTUS",
+    "raw": 72,
+    "smoothed": 76.2,
+    "target": 120,
+    "latencyMs": 133
+  },
+  {
+    "t": 109747,
+    "type": "ICTUS",
+    "raw": 79,
+    "smoothed": 77,
+    "target": 120,
+    "latencyMs": 165
+  },
+  {
+    "t": 110420,
+    "type": "ICTUS",
+    "raw": 90,
+    "smoothed": 81.4,
+    "target": 120,
+    "latencyMs": 38
+  },
+  {
+    "t": 111319,
+    "type": "ICTUS",
+    "raw": 66,
+    "smoothed": 76.2,
+    "target": 120,
+    "latencyMs": 89
+  },
+  {
+    "t": 111608,
+    "type": "FPS",
+    "fps": 32
+  },
+  {
+    "t": 112354,
+    "type": "ICTUS",
+    "raw": 58,
+    "smoothed": 69.8,
+    "target": 120,
+    "latencyMs": 193
+  },
+  {
+    "t": 113047,
+    "type": "ICTUS",
+    "raw": 88,
+    "smoothed": 76.1,
+    "target": 120,
+    "latencyMs": 120
+  },
+  {
+    "t": 113830,
+    "type": "ICTUS",
+    "raw": 76,
+    "smoothed": 76,
+    "target": 120,
+    "latencyMs": 101
+  },
+  {
+    "t": 114711,
+    "type": "ICTUS",
+    "raw": 68,
+    "smoothed": 73.2,
+    "target": 120,
+    "latencyMs": 90
+  },
+  {
+    "t": 115644,
+    "type": "ICTUS",
+    "raw": 65,
+    "smoothed": 70.2,
+    "target": 120,
+    "latencyMs": 125
+  },
+  {
+    "t": 116364,
+    "type": "ICTUS",
+    "raw": 83,
+    "smoothed": 74.8,
+    "target": 120,
+    "latencyMs": 180
+  },
+  {
+    "t": 116618,
+    "type": "FPS",
+    "fps": 33
+  },
+  {
+    "t": 117234,
+    "type": "ICTUS",
+    "raw": 69,
+    "smoothed": 72.8,
+    "target": 120,
+    "latencyMs": 47
+  },
+  {
+    "t": 118142,
+    "type": "ICTUS",
+    "raw": 66,
+    "smoothed": 70.4,
+    "target": 120,
+    "latencyMs": 84
+  },
+  {
+    "t": 119068,
+    "type": "ICTUS",
+    "raw": 65,
+    "smoothed": 68.4,
+    "target": 120,
+    "latencyMs": 103
+  },
+  {
+    "t": 119858,
+    "type": "ICTUS",
+    "raw": 76,
+    "smoothed": 71,
+    "target": 120,
+    "latencyMs": 179
+  },
+  {
+    "t": 120725,
+    "type": "ICTUS",
+    "raw": 70,
+    "smoothed": 70.6,
+    "target": 120,
+    "latencyMs": 164
+  },
+  {
+    "t": 121506,
+    "type": "ICTUS",
+    "raw": 77,
+    "smoothed": 72.7,
+    "target": 120,
+    "latencyMs": 92
+  },
+  {
+    "t": 121653,
+    "type": "FPS",
+    "fps": 32
+  },
+  {
+    "t": 122435,
+    "type": "ICTUS",
+    "raw": 64,
+    "smoothed": 69.8,
+    "target": 120,
+    "latencyMs": 177
+  },
+  {
+    "t": 123229,
+    "type": "ICTUS",
+    "raw": 75,
+    "smoothed": 71.8,
+    "target": 120,
+    "latencyMs": 158
+  },
+  {
+    "t": 124065,
+    "type": "ICTUS",
+    "raw": 72,
+    "smoothed": 71.7,
+    "target": 120,
+    "latencyMs": 160
+  },
+  {
+    "t": 124938,
+    "type": "ICTUS",
+    "raw": 69,
+    "smoothed": 70.7,
+    "target": 120,
+    "latencyMs": 133
+  },
+  {
+    "t": 125783,
+    "type": "ICTUS",
+    "raw": 71,
+    "smoothed": 70.8,
+    "target": 120,
+    "latencyMs": 135
+  },
+  {
+    "t": 126490,
+    "type": "ICTUS",
+    "raw": 85,
+    "smoothed": 75.8,
+    "target": 120,
+    "latencyMs": 132
+  },
+  {
+    "t": 126669,
+    "type": "FPS",
+    "fps": 32
+  },
+  {
+    "t": 127402,
+    "type": "ICTUS",
+    "raw": 66,
+    "smoothed": 72.2,
+    "target": 120,
+    "latencyMs": 169
+  },
+  {
+    "t": 128137,
+    "type": "ICTUS",
+    "raw": 82,
+    "smoothed": 75.5,
+    "target": 120,
+    "latencyMs": 82
+  },
+  {
+    "t": 129126,
+    "type": "ICTUS",
+    "raw": 61,
+    "smoothed": 70.4,
+    "target": 120,
+    "latencyMs": 104
+  },
+  {
+    "t": 129897,
+    "type": "ICTUS",
+    "raw": 78,
+    "smoothed": 73,
+    "target": 120,
+    "latencyMs": 191
+  },
+  {
+    "t": 130668,
+    "type": "ICTUS",
+    "raw": 78,
+    "smoothed": 74.8,
+    "target": 120,
+    "latencyMs": 99
+  },
+  {
+    "t": 131468,
+    "type": "ICTUS",
+    "raw": 75,
+    "smoothed": 74.7,
+    "target": 120,
+    "latencyMs": 115
+  },
+  {
+    "t": 131691,
+    "type": "FPS",
+    "fps": 31
+  },
+  {
+    "t": 132406,
+    "type": "ICTUS",
+    "raw": 64,
+    "smoothed": 70.9,
+    "target": 120,
+    "latencyMs": 143
+  },
+  {
+    "t": 133190,
+    "type": "ICTUS",
+    "raw": 77,
+    "smoothed": 73.1,
+    "target": 120,
+    "latencyMs": 180
+  },
+  {
+    "t": 133987,
+    "type": "ICTUS",
+    "raw": 75,
+    "smoothed": 73.9,
+    "target": 120,
+    "latencyMs": 121
+  },
+  {
+    "t": 134824,
+    "type": "ICTUS",
+    "raw": 71,
+    "smoothed": 73,
+    "target": 120,
+    "latencyMs": 116
+  },
+  {
+    "t": 135724,
+    "type": "ICTUS",
+    "raw": 66,
+    "smoothed": 70.6,
+    "target": 120,
+    "latencyMs": 189
+  },
+  {
+    "t": 136373,
+    "type": "ICTUS",
+    "raw": 93,
+    "smoothed": 78.5,
+    "target": 120,
+    "latencyMs": 162
+  },
+  {
+    "t": 136769,
+    "type": "FPS",
+    "fps": 32
+  },
+  {
+    "t": 137192,
+    "type": "ICTUS",
+    "raw": 74,
+    "smoothed": 76.8,
+    "target": 120,
+    "latencyMs": 97
+  },
+  {
+    "t": 138029,
+    "type": "ICTUS",
+    "raw": 72,
+    "smoothed": 75,
+    "target": 120,
+    "latencyMs": 107
+  },
+  {
+    "t": 138965,
+    "type": "ICTUS",
+    "raw": 64,
+    "smoothed": 71,
+    "target": 120,
+    "latencyMs": 175
+  },
+  {
+    "t": 139701,
+    "type": "ICTUS",
+    "raw": 81,
+    "smoothed": 74.7,
+    "target": 120,
+    "latencyMs": 179
+  },
+  {
+    "t": 140469,
+    "type": "ICTUS",
+    "raw": 78,
+    "smoothed": 76,
+    "target": 120,
+    "latencyMs": 35
+  },
+  {
+    "t": 141340,
+    "type": "ICTUS",
+    "raw": 69,
+    "smoothed": 73.4,
+    "target": 120,
+    "latencyMs": 112
+  },
+  {
+    "t": 141784,
+    "type": "FPS",
+    "fps": 33
+  },
+  {
+    "t": 142254,
+    "type": "ICTUS",
+    "raw": 66,
+    "smoothed": 70.7,
+    "target": 120,
+    "latencyMs": 128
+  },
+  {
+    "t": 143009,
+    "type": "ICTUS",
+    "raw": 79,
+    "smoothed": 73.7,
+    "target": 120,
+    "latencyMs": 108
+  },
+  {
+    "t": 143895,
+    "type": "ICTUS",
+    "raw": 68,
+    "smoothed": 71.6,
+    "target": 120,
+    "latencyMs": 133
+  },
+  {
+    "t": 144763,
+    "type": "ICTUS",
+    "raw": 69,
+    "smoothed": 70.8,
+    "target": 120,
+    "latencyMs": 108
+  },
+  {
+    "t": 145610,
+    "type": "ICTUS",
+    "raw": 71,
+    "smoothed": 70.8,
+    "target": 120,
+    "latencyMs": 131
+  },
+  {
+    "t": 146468,
+    "type": "ICTUS",
+    "raw": 70,
+    "smoothed": 70.6,
+    "target": 120,
+    "latencyMs": 115
+  },
+  {
+    "t": 146804,
+    "type": "FPS",
+    "fps": 32
+  },
+  {
+    "t": 147301,
+    "type": "ICTUS",
+    "raw": 72,
+    "smoothed": 71.1,
+    "target": 120,
+    "latencyMs": 36
+  },
+  {
+    "t": 148280,
+    "type": "ICTUS",
+    "raw": 61,
+    "smoothed": 67.7,
+    "target": 120,
+    "latencyMs": 70
+  },
+  {
+    "t": 149110,
+    "type": "ICTUS",
+    "raw": 72,
+    "smoothed": 69.1,
+    "target": 120,
+    "latencyMs": 172
+  },
+  {
+    "t": 149955,
+    "type": "ICTUS",
+    "raw": 71,
+    "smoothed": 69.9,
+    "target": 120,
+    "latencyMs": 182
+  },
+  {
+    "t": 150783,
+    "type": "ICTUS",
+    "raw": 72,
+    "smoothed": 70.7,
+    "target": 120,
+    "latencyMs": 109
+  },
+  {
+    "t": 151744,
+    "type": "ICTUS",
+    "raw": 62,
+    "smoothed": 67.8,
+    "target": 120,
+    "latencyMs": 87
+  },
+  {
+    "t": 151812,
+    "type": "FPS",
+    "fps": 32
+  },
+  {
+    "t": 152742,
+    "type": "ICTUS",
+    "raw": 60,
+    "smoothed": 65.1,
+    "target": 120,
+    "latencyMs": 192
+  },
+  {
+    "t": 153502,
+    "type": "ICTUS",
+    "raw": 79,
+    "smoothed": 70.1,
+    "target": 120,
+    "latencyMs": 176
+  },
+  {
+    "t": 154391,
+    "type": "ICTUS",
+    "raw": 67,
+    "smoothed": 69.1,
+    "target": 120,
+    "latencyMs": 66
+  },
+  {
+    "t": 155260,
+    "type": "ICTUS",
+    "raw": 69,
+    "smoothed": 69.1,
+    "target": 120,
+    "latencyMs": 112
+  },
+  {
+    "t": 156093,
+    "type": "ICTUS",
+    "raw": 72,
+    "smoothed": 70.1,
+    "target": 120,
+    "latencyMs": 180
+  },
+  {
+    "t": 156701,
+    "type": "ICTUS",
+    "raw": 100,
+    "smoothed": 80.5,
+    "target": 120,
+    "latencyMs": 114
+  },
+  {
+    "t": 156854,
+    "type": "FPS",
+    "fps": 32
+  },
+  {
+    "t": 157421,
+    "type": "ICTUS",
+    "raw": 83,
+    "smoothed": 81.3,
+    "target": 120,
+    "latencyMs": 109
+  },
+  {
+    "t": 158289,
+    "type": "ICTUS",
+    "raw": 69,
+    "smoothed": 77.1,
+    "target": 120,
+    "latencyMs": 118
+  },
+  {
+    "t": 159178,
+    "type": "ICTUS",
+    "raw": 67,
+    "smoothed": 73.6,
+    "target": 120,
+    "latencyMs": 196
+  },
+  {
+    "t": 159925,
+    "type": "ICTUS",
+    "raw": 80,
+    "smoothed": 76,
+    "target": 120,
+    "latencyMs": 109
+  },
+  {
+    "t": 160685,
+    "type": "ICTUS",
+    "raw": 79,
+    "smoothed": 77.1,
+    "target": 120,
+    "latencyMs": 122
+  },
+  {
+    "t": 161512,
+    "type": "ICTUS",
+    "raw": 73,
+    "smoothed": 75.5,
+    "target": 120,
+    "latencyMs": 106
+  },
+  {
+    "t": 161858,
+    "type": "FPS",
+    "fps": 32
+  },
+  {
+    "t": 162471,
+    "type": "ICTUS",
+    "raw": 63,
+    "smoothed": 71,
+    "target": 120,
+    "latencyMs": 226
+  },
+  {
+    "t": 163118,
+    "type": "ICTUS",
+    "raw": 92,
+    "smoothed": 78.5,
+    "target": 120,
+    "latencyMs": 177
+  },
+  {
+    "t": 163927,
+    "type": "ICTUS",
+    "raw": 74,
+    "smoothed": 77,
+    "target": 120,
+    "latencyMs": 112
+  },
+  {
+    "t": 164602,
+    "type": "ICTUS",
+    "raw": 89,
+    "smoothed": 81.1,
+    "target": 120,
+    "latencyMs": 116
+  },
+  {
+    "t": 165468,
+    "type": "ICTUS",
+    "raw": 70,
+    "smoothed": 77.2,
+    "target": 120,
+    "latencyMs": 125
+  },
+  {
+    "t": 166411,
+    "type": "ICTUS",
+    "raw": 63,
+    "smoothed": 72.2,
+    "target": 120,
+    "latencyMs": 144
+  },
+  {
+    "t": 166886,
+    "type": "FPS",
+    "fps": 31
+  },
+  {
+    "t": 167470,
+    "type": "ICTUS",
+    "raw": 57,
+    "smoothed": 66.8,
+    "target": 120,
+    "latencyMs": 107
+  },
+  {
+    "t": 168490,
+    "type": "ICTUS",
+    "raw": 59,
+    "smoothed": 64,
+    "target": 120,
+    "latencyMs": 123
+  },
+  {
+    "t": 169293,
+    "type": "ICTUS",
+    "raw": 75,
+    "smoothed": 67.7,
+    "target": 120,
+    "latencyMs": 170
+  },
+  {
+    "t": 169886,
+    "type": "ICTUS",
+    "raw": 102,
+    "smoothed": 79.7,
+    "target": 120,
+    "latencyMs": 113
+  },
+  {
+    "t": 170793,
+    "type": "ICTUS",
+    "raw": 66,
+    "smoothed": 75,
+    "target": 120,
+    "latencyMs": 96
+  },
+  {
+    "t": 171700,
+    "type": "ICTUS",
+    "raw": 66,
+    "smoothed": 71.8,
+    "target": 120,
+    "latencyMs": 112
+  },
+  {
+    "t": 171937,
+    "type": "FPS",
+    "fps": 32
+  },
+  {
+    "t": 172553,
+    "type": "ICTUS",
+    "raw": 71,
+    "smoothed": 71.4,
+    "target": 120,
+    "latencyMs": 184
+  },
+  {
+    "t": 173132,
+    "type": "ICTUS",
+    "raw": 103,
+    "smoothed": 82.5,
+    "target": 120,
+    "latencyMs": 117
+  },
+  {
+    "t": 174069,
+    "type": "ICTUS",
+    "raw": 64,
+    "smoothed": 76.1,
+    "target": 120,
+    "latencyMs": 105
+  },
+  {
+    "t": 174859,
+    "type": "ICTUS",
+    "raw": 75,
+    "smoothed": 75.8,
+    "target": 120,
+    "latencyMs": 93
+  },
+  {
+    "t": 175786,
+    "type": "ICTUS",
+    "raw": 65,
+    "smoothed": 71.9,
+    "target": 120,
+    "latencyMs": 176
+  },
+  {
+    "t": 176582,
+    "type": "ICTUS",
+    "raw": 76,
+    "smoothed": 73.3,
+    "target": 120,
+    "latencyMs": 139
+  },
+  {
+    "t": 176942,
+    "type": "FPS",
+    "fps": 31
+  },
+  {
+    "t": 177642,
+    "type": "ICTUS",
+    "raw": 56,
+    "smoothed": 67.4,
+    "target": 120,
+    "latencyMs": 125
+  },
+  {
+    "t": 178334,
+    "type": "ICTUS",
+    "raw": 87,
+    "smoothed": 74.4,
+    "target": 120,
+    "latencyMs": 117
+  },
+  {
+    "t": 179174,
+    "type": "ICTUS",
+    "raw": 72,
+    "smoothed": 73.4,
+    "target": 120,
+    "latencyMs": 133
+  },
+  {
+    "t": 179925,
+    "type": "ICTUS",
+    "raw": 79,
+    "smoothed": 75.5,
+    "target": 120,
+    "latencyMs": 131
+  },
+  {
+    "t": 180439,
+    "type": "PINCH_DETECTED",
+    "holdMs": 52
+  },
+  {
+    "t": 181955,
+    "type": "FPS",
+    "fps": 32
+  },
+  {
+    "t": 182235,
+    "type": "FIST_DETECTED",
+    "holdMs": 332
+  },
+  {
+    "t": 183738,
+    "type": "ICTUS",
+    "raw": 105,
+    "smoothed": 85.7,
+    "target": 120,
+    "latencyMs": 211
+  },
+  {
+    "t": 183972,
+    "type": "ICTUS",
+    "raw": 258,
+    "smoothed": 146.1,
+    "target": 120,
+    "latencyMs": 81
+  },
+  {
+    "t": 184238,
+    "type": "ICTUS",
+    "raw": 225,
+    "smoothed": 173.7,
+    "target": 120,
+    "latencyMs": 103
+  },
+  {
+    "t": 186083,
+    "type": "ICTUS",
+    "raw": 33,
+    "smoothed": 129.7,
+    "target": 120,
+    "latencyMs": 50
+  },
+  {
+    "t": 186103,
+    "type": "VOL_DOWN",
+    "gain": 0.82
+  },
+  {
+    "t": 186389,
+    "type": "ICTUS",
+    "raw": 196,
+    "smoothed": 152.8,
+    "target": 120,
+    "latencyMs": 144
+  },
+  {
+    "t": 186963,
+    "type": "FPS",
+    "fps": 36
+  },
+  {
+    "t": 187027,
+    "type": "ICTUS",
+    "raw": 94,
+    "smoothed": 132.2,
+    "target": 120,
+    "latencyMs": 493
+  },
+  {
+    "t": 187258,
+    "type": "ICTUS",
+    "raw": 262,
+    "smoothed": 177.7,
+    "target": 120,
+    "latencyMs": 54
+  },
+  {
+    "t": 187683,
+    "type": "ICTUS",
+    "raw": 141,
+    "smoothed": 164.7,
+    "target": 120,
+    "latencyMs": 258
+  },
+  {
+    "t": 187961,
+    "type": "ICTUS",
+    "raw": 215,
+    "smoothed": 182.5,
+    "target": 120,
+    "latencyMs": 32
+  },
+  {
+    "t": 188166,
+    "type": "ICTUS",
+    "raw": 295,
+    "smoothed": 221.9,
+    "target": 120,
+    "latencyMs": 31
+  },
+  {
+    "t": 188434,
+    "type": "ICTUS",
+    "raw": 223,
+    "smoothed": 222.3,
+    "target": 120,
+    "latencyMs": 53
+  },
+  {
+    "t": 188646,
+    "type": "ICTUS",
+    "raw": 283,
+    "smoothed": 243.5,
+    "target": 120,
+    "latencyMs": 46
+  },
+  {
+    "t": 188915,
+    "type": "ICTUS",
+    "raw": 224,
+    "smoothed": 236.5,
+    "target": 120,
+    "latencyMs": 141
+  },
+  {
+    "t": 189363,
+    "type": "ICTUS",
+    "raw": 135,
+    "smoothed": 201,
+    "target": 120,
+    "latencyMs": 284
+  },
+  {
+    "t": 191973,
+    "type": "FPS",
+    "fps": 34
+  },
+  {
+    "t": 195468,
+    "type": "ICTUS",
+    "raw": 38,
+    "smoothed": 147.4,
+    "target": 120,
+    "latencyMs": 22
+  },
+  {
+    "t": 195755,
+    "type": "ICTUS",
+    "raw": 206,
+    "smoothed": 168,
+    "target": 120,
+    "latencyMs": 122
+  },
+  {
+    "t": 196984,
+    "type": "FPS",
+    "fps": 39
+  }
+]
