@@ -37,6 +37,21 @@ const STRINGS = {
     pauseTitle:         '暫停',
     resumeTitle:        '繼續',
     themeTitle:         '切換亮色／暗色模式',
+    tut_step1Title:     '右手 — 節拍',
+    tut_step1Body:      '揮動右手指揮節拍<br>揮 5 次暖身',
+    tut_step2Title:     '左手 — 音量',
+    tut_step2Body:      '食指舉高過肩膀 → 音量增加<br>食指降至腰部以下 → 音量降低',
+    tut_step3Title:     '手勢 — 截止',
+    tut_step3Body:      '握緊左拳，立即停止音樂',
+    tut_step4Title:     '手勢 — 延音',
+    tut_step4Body:      '左手拇指與食指捏合，啟動延音',
+    tut_step1Progress:  '揮動 {n} / 5',
+    tut_step2Up:        '舉起 ✓',
+    tut_step2Down:      '放下 ✓',
+    tut_complete:       '準備好了！',
+    tut_completeBody:   '載入 MIDI 檔案，開始指揮吧！',
+    tut_begin:          '開始指揮',
+    tut_skip:           '跳過教學',
   },
   en: {
     title:              'Air Conductor',
@@ -71,6 +86,21 @@ const STRINGS = {
     pauseTitle:         'Pause',
     resumeTitle:        'Resume',
     themeTitle:         'Toggle light / dark mode',
+    tut_step1Title:     'Right Hand — Tempo',
+    tut_step1Body:      'Wave your right hand to set the tempo<br>Do it 5 times to warm up',
+    tut_step2Title:     'Left Hand — Volume',
+    tut_step2Body:      'Raise your index finger above your shoulder → Volume up<br>Lower it below your hip → Volume down',
+    tut_step3Title:     'Gesture — Cut-off',
+    tut_step3Body:      'Clench your left fist to stop the music immediately',
+    tut_step4Title:     'Gesture — Fermata',
+    tut_step4Body:      'Pinch your left thumb and index finger to hold a note',
+    tut_step1Progress:  'Waves: {n} / 5',
+    tut_step2Up:        'Raised ✓',
+    tut_step2Down:      'Lowered ✓',
+    tut_complete:       'Ready to Conduct!',
+    tut_completeBody:   'Load a MIDI file to start your performance.',
+    tut_begin:          'Start Conducting',
+    tut_skip:           'Skip Tutorial',
   }
 };
 
@@ -103,6 +133,7 @@ function setLang(lang) {
       ? STRINGS[lang].helpBtnOpen
       : STRINGS[lang].helpBtn;
   }
+  if (typeof tutorialMode !== 'undefined' && tutorialMode && tutorialStep > 0) updateTutorialUI();
 }
 
 
@@ -287,6 +318,102 @@ let fermataAttackTimer = null;
 const FIST_HOLD_MS = 300;
 const FIST_COOLDOWN = 800;
 let handFrameCounter = 0;
+
+
+// ═══════════════════════════════════════════
+//  TUTORIAL STATE
+// ═══════════════════════════════════════════
+let tutorialMode = false;
+let tutorialStep = 0;
+let tutWaveCount = 0;
+let tutVolUpDone = false, tutVolDownDone = false;
+let tutFistHoldStart = 0, tutPinchHoldStart = 0;
+let tutStepLocked = false;
+
+function onLangSelect(lang) {
+  setLang(lang);
+  document.getElementById('langSelectOverlay').style.display = 'none';
+  document.getElementById('cameraLoading').style.display = 'flex';
+  tutorialMode = true;
+  startCamera().catch(err => {
+    document.getElementById('cameraLoading').style.display = 'none';
+    tutorialMode = false;
+    document.getElementById('uploadOverlay').style.display = 'flex';
+    console.warn('Camera failed during tutorial:', err);
+  });
+}
+
+function updateTutorialUI() {
+  const S = STRINGS[currentLang];
+  const titles = [S.tut_step1Title, S.tut_step2Title, S.tut_step3Title, S.tut_step4Title];
+  const bodies = [S.tut_step1Body, S.tut_step2Body, S.tut_step3Body, S.tut_step4Body];
+  if (tutorialStep >= 1 && tutorialStep <= 4) {
+    document.getElementById('tutStepTitle').textContent = titles[tutorialStep - 1];
+    document.getElementById('tutStepBody').innerHTML = bodies[tutorialStep - 1];
+  }
+  document.querySelectorAll('.tut-dot').forEach((d, i) => {
+    d.classList.toggle('active', i + 1 === tutorialStep);
+    d.classList.toggle('done', i + 1 < tutorialStep);
+  });
+  document.getElementById('tutBeginBtn').style.display = 'none';
+  document.getElementById('tutSkipBtn').style.display = 'inline-block';
+  updateTutorialProgress();
+}
+
+function updateTutorialProgress() {
+  const S = STRINGS[currentLang];
+  const el = document.getElementById('tutStepProgress');
+  if (!el) return;
+  if (tutorialStep === 1) {
+    el.textContent = S.tut_step1Progress.replace('{n}', tutWaveCount);
+  } else if (tutorialStep === 2) {
+    const parts = [];
+    if (tutVolUpDone)   parts.push(S.tut_step2Up);
+    if (tutVolDownDone) parts.push(S.tut_step2Down);
+    el.textContent = parts.join('   ');
+  } else {
+    el.textContent = '';
+  }
+}
+
+function advanceTutorial() {
+  tutWaveCount = 0;
+  tutVolUpDone = false; tutVolDownDone = false;
+  tutFistHoldStart = 0; tutPinchHoldStart = 0;
+  tutorialStep++;
+  if (tutorialStep > 4) {
+    completeTutorial();
+  } else {
+    updateTutorialUI();
+  }
+}
+
+function completeTutorial() {
+  localStorage.setItem('airConductor_tutorialDone', '1');
+  tutorialMode = false;
+  tutorialStep = 0;
+  const S = STRINGS[currentLang];
+  document.getElementById('tutStepTitle').textContent = S.tut_complete;
+  document.getElementById('tutStepBody').textContent = S.tut_completeBody;
+  document.getElementById('tutStepProgress').textContent = '';
+  document.querySelectorAll('.tut-dot').forEach(d => { d.classList.remove('active'); d.classList.add('done'); });
+  document.getElementById('tutBeginBtn').style.display = 'inline-block';
+  document.getElementById('tutSkipBtn').style.display = 'none';
+}
+
+function onTutorialBegin() {
+  document.getElementById('tutorialOverlay').style.display = 'none';
+  document.getElementById('uploadOverlay').style.display = 'flex';
+}
+
+function skipTutorial() {
+  localStorage.setItem('airConductor_tutorialDone', '1');
+  tutorialMode = false;
+  tutorialStep = 0;
+  document.getElementById('tutorialOverlay').style.display = 'none';
+  document.getElementById('uploadOverlay').style.display = 'flex';
+}
+
 
 // Cached DOM references — queried once, reused in rAF loops
 const elProgressFill=document.getElementById('progressFill');
@@ -515,6 +642,10 @@ function loadNewSong(){
 // ═══════════════════════════════════════════
 document.getElementById('fileInput').addEventListener('change',async(e)=>{
   const file=e.target.files[0];if(!file)return;
+  tutorialMode=false;tutorialStep=0;
+  localStorage.setItem('airConductor_tutorialDone','1');
+  document.getElementById('tutorialOverlay').style.display='none';
+  document.getElementById('langSelectOverlay').style.display='none';
   document.getElementById('startOverlay').style.display='none';
   document.getElementById('fileName').textContent=file.name;
 
@@ -924,7 +1055,14 @@ async function startCamera(){
     canvas.height = video.videoHeight || 720;
     resizeHudCanvas();
     document.getElementById('cameraLoading').style.display='none';
-    waitForStartClick();
+    if (tutorialMode) {
+      tutorialStep = 1;
+      tutWaveCount = 0;
+      document.getElementById('tutorialOverlay').style.display = 'flex';
+      updateTutorialUI();
+    } else {
+      waitForStartClick();
+    }
 
     function detect(){
       if(video.readyState<2){requestAnimationFrame(detect);return;}
@@ -959,7 +1097,15 @@ async function startCamera(){
           state.poseBuf=[];
         }
         k.speed=handSpeed(state);
-        if(side==='right') detectBeat(k.speed,frameTimestamp,state);
+        if(side==='right'){
+          const _prevIctus=lastIctusMs;
+          detectBeat(k.speed,frameTimestamp,state);
+          if(tutorialMode&&tutorialStep===1&&lastIctusMs!==_prevIctus&&!tutStepLocked){
+            tutWaveCount++;
+            updateTutorialProgress();
+            if(tutWaveCount>=5){tutStepLocked=true;setTimeout(()=>{tutStepLocked=false;advanceTutorial();},600);}
+          }
+        }
       }
 
       const lFinger=lm&&lm[19];
@@ -972,6 +1118,13 @@ async function startCamera(){
         }else if(lFinger.y>lHip.y){
           gainScale=Math.max(GAIN_MIN,gainScale-GAIN_RATE);
           if(scheduler)scheduler.gainScale=gainScale;
+        }
+        if(tutorialMode&&tutorialStep===2){
+          if(lFinger.y<lShoulder.y&&!tutVolUpDone){tutVolUpDone=true;updateTutorialProgress();}
+          if(lFinger.y>lHip.y&&!tutVolDownDone){tutVolDownDone=true;updateTutorialProgress();}
+          if(tutVolUpDone&&tutVolDownDone&&!tutStepLocked){
+            tutStepLocked=true;setTimeout(()=>{tutStepLocked=false;advanceTutorial();},600);
+          }
         }
       }
       known.left.shoulderY=lShoulder&&lShoulder.visibility>0.3?lShoulder.y:null;
@@ -1119,6 +1272,26 @@ async function startCamera(){
               pinchSinceMs=0;
             }
           }
+        }
+      }
+
+      // Tutorial gesture detection — fist (step 3) and pinch (step 4)
+      if(tutorialMode&&leftLm){
+        if(tutorialStep===3){
+          if(isRightFist(leftLm)){
+            if(tutFistHoldStart===0)tutFistHoldStart=now;
+            if(now-tutFistHoldStart>=300&&!tutStepLocked){
+              tutStepLocked=true;setTimeout(()=>{tutStepLocked=false;advanceTutorial();},700);
+            }
+          }else{tutFistHoldStart=0;}
+        }
+        if(tutorialStep===4){
+          if(isPinch(leftLm)){
+            if(tutPinchHoldStart===0)tutPinchHoldStart=now;
+            if(now-tutPinchHoldStart>=20&&!tutStepLocked){
+              tutStepLocked=true;setTimeout(()=>{tutStepLocked=false;completeTutorial();},700);
+            }
+          }else{tutPinchHoldStart=0;}
         }
       }
 

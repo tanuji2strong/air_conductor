@@ -340,3 +340,96 @@ kbd { background: var(--border); color: var(--text); padding: 1px 6px; border-ra
 .help-body { font-size: var(--fs-body); color: var(--text); line-height: 2; }
 
 
+/* ─── Language Select Overlay ─── */
+.lang-select-overlay {
+  position: fixed; inset: 0;
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center; gap: 32px;
+  background: rgba(9,9,13,0.97); z-index: 200;
+}
+[data-theme="light"] .lang-select-overlay { background: rgba(244,241,235,0.98); }
+.lang-select-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 2.2rem; font-weight: 300; color: var(--silver);
+  letter-spacing: 0.08em; text-align: center; line-height: 1.3;
+}
+.lang-select-sub {
+  font-size: 0.65rem; color: var(--text-dim);
+  letter-spacing: 0.22em; text-transform: uppercase;
+}
+.lang-select-btns { display: flex; gap: 16px; }
+.lang-select-btn {
+  padding: 14px 44px;
+  border: 1px solid var(--silver);
+  background: transparent; color: var(--silver);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.78rem; letter-spacing: 0.16em;
+  text-transform: uppercase; cursor: pointer; transition: all 0.2s;
+}
+.lang-select-btn:hover { background: var(--silver); color: var(--bg); }
+
+
+/* ─── Tutorial Overlay ─── */
+.tutorial-overlay {
+  position: absolute; inset: 0;
+  display: none; flex-direction: column;
+  align-items: stretch; justify-content: flex-end;
+  z-index: 24; pointer-events: none;
+}
+.tutorial-panel {
+  pointer-events: all;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 18px 32px 22px;
+  display: flex; flex-direction: column; gap: 8px;
+  transition: background 0.25s, border-color 0.25s;
+}
+.tutorial-dots {
+  display: flex; gap: 8px; align-items: center; margin-bottom: 2px;
+}
+.tut-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--border);
+  transition: background 0.3s, transform 0.25s;
+  flex-shrink: 0;
+}
+.tut-dot.active { background: var(--silver); transform: scale(1.4); }
+.tut-dot.done   { background: var(--silver); opacity: 0.4; }
+.tutorial-step-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.58rem; letter-spacing: 0.2em;
+  text-transform: uppercase; color: var(--text-dim);
+}
+.tutorial-step-body {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.25rem; font-weight: 400; color: var(--text);
+  line-height: 1.6;
+}
+.tutorial-step-progress {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem; color: var(--silver);
+  letter-spacing: 0.06em; min-height: 1.1em;
+}
+.tutorial-actions {
+  display: flex; align-items: center; gap: 12px; margin-top: 4px;
+}
+.tutorial-begin-btn {
+  padding: 9px 28px;
+  border: 1px solid var(--silver);
+  background: var(--silver); color: var(--bg);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.65rem; letter-spacing: 0.14em;
+  text-transform: uppercase; cursor: pointer; transition: all 0.2s;
+}
+.tutorial-begin-btn:hover { opacity: 0.8; }
+.tutorial-skip-btn {
+  padding: 9px 20px;
+  border: 1px solid var(--border);
+  background: transparent; color: var(--text-dim);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.6rem; letter-spacing: 0.12em;
+  text-transform: uppercase; cursor: pointer; transition: all 0.2s;
+}
+.tutorial-skip-btn:hover { border-color: var(--text-dim); color: var(--text); }
+
+

@@ -113,6 +113,24 @@
         <button class="song-end-btn song-end-btn-new" onclick="loadNewSong()" data-i18n="loadNew">載入新曲</button>
       </div>
     </div>
+
+    <div class="tutorial-overlay" id="tutorialOverlay">
+      <div class="tutorial-panel">
+        <div class="tutorial-dots">
+          <span class="tut-dot" data-step="1"></span>
+          <span class="tut-dot" data-step="2"></span>
+          <span class="tut-dot" data-step="3"></span>
+          <span class="tut-dot" data-step="4"></span>
+        </div>
+        <div class="tutorial-step-label" id="tutStepTitle"></div>
+        <div class="tutorial-step-body" id="tutStepBody"></div>
+        <div class="tutorial-step-progress" id="tutStepProgress"></div>
+        <div class="tutorial-actions">
+          <button class="tutorial-begin-btn" id="tutBeginBtn" onclick="onTutorialBegin()" style="display:none" data-i18n="tut_begin">Start Conducting</button>
+          <button class="tutorial-skip-btn" id="tutSkipBtn" onclick="skipTutorial()" data-i18n="tut_skip">Skip Tutorial</button>
+        </div>
+      </div>
+    </div>
   </div>
 
 </div>
@@ -123,6 +141,15 @@
     <div class="footer-fill" id="progressFill"></div>
   </div>
 </footer>
+
+<div class="lang-select-overlay" id="langSelectOverlay">
+  <h2 class="lang-select-title">空氣指揮家 · Air Conductor</h2>
+  <p class="lang-select-sub">選擇語言 · Choose your language</p>
+  <div class="lang-select-btns">
+    <button class="lang-select-btn" onclick="onLangSelect('zh')">中文</button>
+    <button class="lang-select-btn" onclick="onLangSelect('en')">English</button>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/vision_bundle.mjs"
   crossorigin="anonymous" type="module"></script>
@@ -149,6 +176,10 @@
       btn.classList.toggle('active', btn.dataset.size === s);
     });
     setLang(currentLang);
+    if (!localStorage.getItem('airConductor_tutorialDone')) {
+      document.getElementById('uploadOverlay').style.display = 'none';
+      document.getElementById('langSelectOverlay').style.display = 'flex';
+    }
   })();
 </script>
 
