@@ -38,9 +38,16 @@ const STRINGS = {
     resumeTitle:        '繼續',
     themeTitle:         '切換亮色／暗色模式',
     tut_step1Title:     '右手 — 節拍',
-    tut_step1Body:      '請後退，確保肩膀與臀部皆入鏡<br>揮動右手 10 次暖身，若偵測不靈敏可調整下方靈敏度',
+    tut_setupTitle:     '相機設定',
+    tut_setupBody:      '請後退，直到肩膀與臀部皆入鏡<br>偵測到正確姿勢後，將自動進入下一步',
+    tut_setupShouldersOk: '肩膀 ✓',
+    tut_setupShouldersNo: '肩膀 ○',
+    tut_setupHipsOk:    '臀部 ✓',
+    tut_setupHipsNo:    '臀部 ○',
+    tut_setupHolding:   '保持姿勢 {pct}%',
+    tut_step1Body:      '揮動右手 10 次暖身<br>若偵測不到動作，請調整下方靈敏度',
     tut_step2Title:     '左手 — 音量',
-    tut_step2Body:      '確認肩膀與臀部皆入鏡<br>食指舉高過肩膀 → 音量增加<br>食指降至腰部以下 → 音量降低',
+    tut_step2Body:      '食指舉高過肩膀 → 音量增加<br>食指降至腰部以下 → 音量降低',
     tut_step3Title:     '手勢 — 截止',
     tut_step3Body:      '握緊左拳，立即停止音樂',
     tut_step4Title:     '手勢 — 延音',
@@ -88,9 +95,16 @@ const STRINGS = {
     resumeTitle:        'Resume',
     themeTitle:         'Toggle light / dark mode',
     tut_step1Title:     'Right Hand — Tempo',
-    tut_step1Body:      'Step back until your shoulders and hips are both visible in the frame<br>Then wave your right hand 10 times — adjust sensitivity below if needed',
+    tut_setupTitle:     'Camera Setup',
+    tut_setupBody:      'Step back until your shoulders and hips are both visible in the frame<br>The tutorial will start automatically once your position is detected',
+    tut_setupShouldersOk: 'Shoulders ✓',
+    tut_setupShouldersNo: 'Shoulders ○',
+    tut_setupHipsOk:    'Hips ✓',
+    tut_setupHipsNo:    'Hips ○',
+    tut_setupHolding:   'Hold still… {pct}%',
+    tut_step1Body:      'Wave your right hand 10 times to warm up<br>Adjust sensitivity below if beats aren\'t detected',
     tut_step2Title:     'Left Hand — Volume',
-    tut_step2Body:      'Make sure your shoulder and hip are both visible in the frame<br>Raise index finger above shoulder → Volume up<br>Lower below hip → Volume down',
+    tut_step2Body:      'Raise your index finger above your shoulder → Volume up<br>Lower it below your hip → Volume down',
     tut_step3Title:     'Gesture — Cut-off',
     tut_step3Body:      'Clench your left fist to stop the music immediately',
     tut_step4Title:     'Gesture — Fermata',
@@ -330,7 +344,9 @@ let tutorialStep = 0;
 let tutWaveCount = 0;
 let tutVolUpDone = false, tutVolDownDone = false;
 let tutFistHoldStart = 0, tutPinchHoldStart = 0;
+let tutSetupHoldStart = 0;
 let tutStepLocked = false;
+const SETUP_HOLD_MS = 1500;
 
 function onLangSelect(lang) {
   setLang(lang);
@@ -347,6 +363,19 @@ function onLangSelect(lang) {
 
 function updateTutorialUI() {
   const S = STRINGS[currentLang];
+  document.getElementById('tutBeginBtn').style.display = 'none';
+  document.getElementById('tutSkipBtn').style.display = 'inline-block';
+
+  if (tutorialStep === 0) {
+    document.getElementById('tutStepTitle').textContent = S.tut_setupTitle;
+    document.getElementById('tutStepBody').textContent = S.tut_setupBody;
+    document.getElementById('tutStepProgress').textContent = S.tut_setupShouldersNo + '   ' + S.tut_setupHipsNo;
+    document.querySelectorAll('.tut-dot').forEach(d => { d.classList.remove('active', 'done'); });
+    const sensRow = document.getElementById('tutSensRow');
+    if (sensRow) sensRow.style.display = 'none';
+    return;
+  }
+
   const titles = [S.tut_step1Title, S.tut_step2Title, S.tut_step3Title, S.tut_step4Title];
   const bodies = [S.tut_step1Body, S.tut_step2Body, S.tut_step3Body, S.tut_step4Body];
   if (tutorialStep >= 1 && tutorialStep <= 4) {
@@ -357,12 +386,10 @@ function updateTutorialUI() {
     d.classList.toggle('active', i + 1 === tutorialStep);
     d.classList.toggle('done', i + 1 < tutorialStep);
   });
-  document.getElementById('tutBeginBtn').style.display = 'none';
-  document.getElementById('tutSkipBtn').style.display = 'inline-block';
   const sensRow = document.getElementById('tutSensRow');
   if (sensRow) sensRow.style.display = tutorialStep === 1 ? 'flex' : 'none';
   const sensLabel = document.getElementById('tutSensLabel');
-  if (sensLabel) sensLabel.textContent = STRINGS[currentLang].tut_sensLabel;
+  if (sensLabel) sensLabel.textContent = S.tut_sensLabel;
   updateTutorialProgress();
 }
 
@@ -386,6 +413,7 @@ function advanceTutorial() {
   tutWaveCount = 0;
   tutVolUpDone = false; tutVolDownDone = false;
   tutFistHoldStart = 0; tutPinchHoldStart = 0;
+  tutSetupHoldStart = 0;
   tutorialStep++;
   if (tutorialStep > 4) {
     completeTutorial();
@@ -1064,8 +1092,8 @@ async function startCamera(){
     resizeHudCanvas();
     document.getElementById('cameraLoading').style.display='none';
     if (tutorialMode) {
-      tutorialStep = 1;
-      tutWaveCount = 0;
+      tutorialStep = 0;
+      tutSetupHoldStart = 0;
       document.getElementById('tutorialOverlay').style.display = 'flex';
       updateTutorialUI();
     } else {
@@ -1140,6 +1168,28 @@ async function startCamera(){
       known.left.fingerVisible=!!(lFinger&&lFinger.visibility>0.3);
 
       const now=performance.now();
+
+      // Tutorial step 0: verify camera framing before gesture steps
+      if(tutorialMode&&tutorialStep===0){
+        const shoulderOk=!!(lm&&lm[11]&&lm[11].visibility>0.4&&lm[12]&&lm[12].visibility>0.4);
+        const hipOk     =!!(lm&&lm[23]&&lm[23].visibility>0.4&&lm[24]&&lm[24].visibility>0.4);
+        const S=STRINGS[currentLang];
+        const progEl=document.getElementById('tutStepProgress');
+        if(shoulderOk&&hipOk){
+          if(tutSetupHoldStart===0)tutSetupHoldStart=now;
+          const pct=Math.min(100,Math.round((now-tutSetupHoldStart)/SETUP_HOLD_MS*100));
+          if(progEl)progEl.textContent=S.tut_setupHolding.replace('{pct}',pct);
+          if(now-tutSetupHoldStart>=SETUP_HOLD_MS&&!tutStepLocked){
+            tutStepLocked=true;setTimeout(()=>{tutStepLocked=false;advanceTutorial();},300);
+          }
+        }else{
+          tutSetupHoldStart=0;
+          if(progEl)progEl.textContent=
+            (shoulderOk?S.tut_setupShouldersOk:S.tut_setupShouldersNo)+
+            '   '+
+            (hipOk?S.tut_setupHipsOk:S.tut_setupHipsNo);
+        }
+      }
 
       // ── HANDS (fist cut-off) ──
       let leftLm=null;
