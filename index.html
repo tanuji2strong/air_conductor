@@ -115,14 +115,17 @@
     </div>
 
     <div class="tutorial-overlay" id="tutorialOverlay">
-      <div class="tutorial-panel">
-        <div class="tutorial-dots">
-          <span class="tut-dot" data-step="1"></span>
-          <span class="tut-dot" data-step="2"></span>
-          <span class="tut-dot" data-step="3"></span>
-          <span class="tut-dot" data-step="4"></span>
+      <div class="tutorial-card">
+        <div class="tut-card-header">
+          <div class="tutorial-dots">
+            <span class="tut-dot" data-step="1"></span>
+            <span class="tut-dot" data-step="2"></span>
+            <span class="tut-dot" data-step="3"></span>
+            <span class="tut-dot" data-step="4"></span>
+          </div>
+          <span class="tutorial-step-label" id="tutStepTitle"></span>
+          <button class="tutorial-skip-btn" id="tutSkipBtn" onclick="skipTutorial()" data-i18n="tut_skip">Skip</button>
         </div>
-        <div class="tutorial-step-label" id="tutStepTitle"></div>
         <div class="tutorial-step-body" id="tutStepBody"></div>
         <div class="tutorial-sens-row" id="tutSensRow" style="display:none">
           <span class="tutorial-sens-label" id="tutSensLabel">Sensitivity</span>
@@ -130,10 +133,9 @@
             oninput="onSensChange(this.value); document.getElementById('sensSlider').value=this.value;">
           <span class="tutorial-sens-val" id="tutSensVal">1</span>
         </div>
-        <div class="tutorial-step-progress" id="tutStepProgress"></div>
-        <div class="tutorial-actions">
+        <div class="tut-card-footer">
+          <span class="tutorial-step-progress" id="tutStepProgress"></span>
           <button class="tutorial-begin-btn" id="tutBeginBtn" onclick="onTutorialBegin()" style="display:none" data-i18n="tut_begin">Start Conducting</button>
-          <button class="tutorial-skip-btn" id="tutSkipBtn" onclick="skipTutorial()" data-i18n="tut_skip">Skip Tutorial</button>
         </div>
       </div>
     </div>
@@ -149,11 +151,15 @@
 </footer>
 
 <div class="lang-select-overlay" id="langSelectOverlay">
-  <h2 class="lang-select-title">空氣指揮家 · Air Conductor</h2>
-  <p class="lang-select-sub">選擇語言 · Choose your language</p>
-  <div class="lang-select-btns">
-    <button class="lang-select-btn" onclick="onLangSelect('zh')">中文</button>
-    <button class="lang-select-btn" onclick="onLangSelect('en')">English</button>
+  <div class="lang-select-inner">
+    <h2 class="lang-select-title">空氣指揮家<br>Air Conductor</h2>
+    <p class="lang-select-tagline">用手勢指揮真實音樂 · Conduct live music with your hands</p>
+    <div class="lang-select-rule"></div>
+    <p class="lang-select-sub">選擇語言 · Choose your language</p>
+    <div class="lang-select-btns">
+      <button class="lang-select-btn" onclick="onLangSelect('zh')">中文</button>
+      <button class="lang-select-btn" onclick="onLangSelect('en')">English</button>
+    </div>
   </div>
 </div>
 

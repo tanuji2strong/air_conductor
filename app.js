@@ -58,7 +58,7 @@ const STRINGS = {
     tut_complete:       '準備好了！',
     tut_completeBody:   '載入 MIDI 檔案，開始指揮吧！',
     tut_begin:          '開始指揮',
-    tut_skip:           '跳過教學',
+    tut_skip:           '跳過',
     tut_sensLabel:      '靈敏度',
   },
   en: {
@@ -115,7 +115,7 @@ const STRINGS = {
     tut_complete:       'Ready to Conduct!',
     tut_completeBody:   'Load a MIDI file to start your performance.',
     tut_begin:          'Start Conducting',
-    tut_skip:           'Skip Tutorial',
+    tut_skip:           'Skip',
     tut_sensLabel:      'Sensitivity',
   }
 };
@@ -1421,6 +1421,32 @@ async function startCamera(){
         ctx.lineWidth=1;
         ctx.strokeStyle='rgba(176,184,196,0.2)';
         ctx.beginPath();ctx.moveTo(0,known.left.hipY*H);ctx.lineTo(W,known.left.hipY*H);ctx.stroke();
+      }
+
+      // Tutorial step 0: draw shoulder + hip landmark rings on camera
+      if(tutorialMode&&tutorialStep===0&&lm){
+        const pts=[
+          {lm:lm[11],ok:lm[11]&&lm[11].visibility>0.4},
+          {lm:lm[12],ok:lm[12]&&lm[12].visibility>0.4},
+          {lm:lm[23],ok:lm[23]&&lm[23].visibility>0.4},
+          {lm:lm[24],ok:lm[24]&&lm[24].visibility>0.4},
+        ];
+        for(const p of pts){
+          if(!p.lm||p.lm.visibility<0.1)continue;
+          const sx=(1-p.lm.x)*W,sy=p.lm.y*H;
+          ctx.save();
+          if(p.ok){
+            ctx.shadowColor='rgba(80,216,154,0.7)';ctx.shadowBlur=14;
+            ctx.strokeStyle='rgba(80,216,154,0.9)';
+          }else{
+            ctx.strokeStyle='rgba(176,184,196,0.35)';
+            ctx.setLineDash([4,4]);
+          }
+          ctx.lineWidth=2;
+          ctx.beginPath();ctx.arc(sx,sy,18,0,Math.PI*2);ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.restore();
+        }
       }
 
       if(fistPaused){
