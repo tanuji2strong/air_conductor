@@ -405,6 +405,19 @@ kbd { background: var(--border); color: var(--text); padding: 1px 6px; border-ra
   font-size: 1.25rem; font-weight: 400; color: var(--text);
   line-height: 1.6;
 }
+.tutorial-sens-row {
+  display: flex; align-items: center; gap: 10px; margin: 2px 0;
+}
+.tutorial-sens-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.58rem; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--text-dim); white-space: nowrap;
+}
+.tutorial-sens-row input[type=range] { flex: 1; accent-color: var(--silver); height: 2px; cursor: pointer; }
+.tutorial-sens-val {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem; color: var(--silver); min-width: 20px; text-align: right;
+}
 .tutorial-step-progress {
   font-family: 'DM Mono', monospace;
   font-size: 0.72rem; color: var(--silver);

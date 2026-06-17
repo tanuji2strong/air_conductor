@@ -124,6 +124,12 @@
         </div>
         <div class="tutorial-step-label" id="tutStepTitle"></div>
         <div class="tutorial-step-body" id="tutStepBody"></div>
+        <div class="tutorial-sens-row" id="tutSensRow" style="display:none">
+          <span class="tutorial-sens-label" id="tutSensLabel">Sensitivity</span>
+          <input type="range" id="tutSensSlider" min="1" max="10" value="1"
+            oninput="onSensChange(this.value); document.getElementById('sensSlider').value=this.value;">
+          <span class="tutorial-sens-val" id="tutSensVal">1</span>
+        </div>
         <div class="tutorial-step-progress" id="tutStepProgress"></div>
         <div class="tutorial-actions">
           <button class="tutorial-begin-btn" id="tutBeginBtn" onclick="onTutorialBegin()" style="display:none" data-i18n="tut_begin">Start Conducting</button>

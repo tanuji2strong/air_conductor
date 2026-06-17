@@ -38,20 +38,21 @@ const STRINGS = {
     resumeTitle:        '繼續',
     themeTitle:         '切換亮色／暗色模式',
     tut_step1Title:     '右手 — 節拍',
-    tut_step1Body:      '揮動右手指揮節拍<br>揮 5 次暖身',
+    tut_step1Body:      '揮動右手指揮節拍，揮 10 次暖身<br>若偵測不到動作，請調整下方靈敏度',
     tut_step2Title:     '左手 — 音量',
     tut_step2Body:      '食指舉高過肩膀 → 音量增加<br>食指降至腰部以下 → 音量降低',
     tut_step3Title:     '手勢 — 截止',
     tut_step3Body:      '握緊左拳，立即停止音樂',
     tut_step4Title:     '手勢 — 延音',
     tut_step4Body:      '左手拇指與食指捏合，啟動延音',
-    tut_step1Progress:  '揮動 {n} / 5',
+    tut_step1Progress:  '揮動 {n} / 10',
     tut_step2Up:        '舉起 ✓',
     tut_step2Down:      '放下 ✓',
     tut_complete:       '準備好了！',
     tut_completeBody:   '載入 MIDI 檔案，開始指揮吧！',
     tut_begin:          '開始指揮',
     tut_skip:           '跳過教學',
+    tut_sensLabel:      '靈敏度',
   },
   en: {
     title:              'Air Conductor',
@@ -87,20 +88,21 @@ const STRINGS = {
     resumeTitle:        'Resume',
     themeTitle:         'Toggle light / dark mode',
     tut_step1Title:     'Right Hand — Tempo',
-    tut_step1Body:      'Wave your right hand to set the tempo<br>Do it 5 times to warm up',
+    tut_step1Body:      'Wave your right hand to set the tempo — do it 10 times to warm up<br>If beats aren\'t detected, try adjusting the sensitivity below',
     tut_step2Title:     'Left Hand — Volume',
     tut_step2Body:      'Raise your index finger above your shoulder → Volume up<br>Lower it below your hip → Volume down',
     tut_step3Title:     'Gesture — Cut-off',
     tut_step3Body:      'Clench your left fist to stop the music immediately',
     tut_step4Title:     'Gesture — Fermata',
     tut_step4Body:      'Pinch your left thumb and index finger to hold a note',
-    tut_step1Progress:  'Waves: {n} / 5',
+    tut_step1Progress:  'Waves: {n} / 10',
     tut_step2Up:        'Raised ✓',
     tut_step2Down:      'Lowered ✓',
     tut_complete:       'Ready to Conduct!',
     tut_completeBody:   'Load a MIDI file to start your performance.',
     tut_begin:          'Start Conducting',
     tut_skip:           'Skip Tutorial',
+    tut_sensLabel:      'Sensitivity',
   }
 };
 
@@ -357,6 +359,10 @@ function updateTutorialUI() {
   });
   document.getElementById('tutBeginBtn').style.display = 'none';
   document.getElementById('tutSkipBtn').style.display = 'inline-block';
+  const sensRow = document.getElementById('tutSensRow');
+  if (sensRow) sensRow.style.display = tutorialStep === 1 ? 'flex' : 'none';
+  const sensLabel = document.getElementById('tutSensLabel');
+  if (sensLabel) sensLabel.textContent = STRINGS[currentLang].tut_sensLabel;
   updateTutorialProgress();
 }
 
@@ -456,6 +462,8 @@ function onSensChange(val){
   cachedSens=Number(val);
   cachedHighThr=0.003*Math.pow(0.22,(cachedSens-1)/4);
   document.getElementById('sensVal').textContent=Number(val);
+  const ts=document.getElementById('tutSensSlider');if(ts&&ts.value!=val)ts.value=val;
+  const tv=document.getElementById('tutSensVal');if(tv)tv.textContent=Number(val);
 }
 
 
@@ -1103,7 +1111,7 @@ async function startCamera(){
           if(tutorialMode&&tutorialStep===1&&lastIctusMs!==_prevIctus&&!tutStepLocked){
             tutWaveCount++;
             updateTutorialProgress();
-            if(tutWaveCount>=5){tutStepLocked=true;setTimeout(()=>{tutStepLocked=false;advanceTutorial();},600);}
+            if(tutWaveCount>=10){tutStepLocked=true;setTimeout(()=>{tutStepLocked=false;advanceTutorial();},600);}
           }
         }
       }
