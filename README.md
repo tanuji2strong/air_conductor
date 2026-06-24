@@ -56,7 +56,7 @@ Quantitative performance was measured across three metronome-grounded tempo cond
 
 ## Accessibility
 
-- **Font-size control** — three tiers (S / M / L); the largest tier enlarges all UI elements and HUD graphics for elder users
+- **Font-size control** — three tiers (S / M / L); the largest tier enlarges all UI elements and HUD graphics, offering partial accommodation for low-vision users — elder-specific usability has not been separately evaluated
 - **Bilingual interface** — Traditional Chinese and English, switchable at any time without reloading
 - **Zero install** — runs in any desktop browser with a webcam; no app store, no account
 
