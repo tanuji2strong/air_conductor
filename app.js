@@ -411,7 +411,7 @@ function updateTutorialUI() {
 
   if (tutorialStep === 0) {
     document.getElementById('tutStepTitle').textContent = S.tut_setupTitle;
-    document.getElementById('tutStepBody').textContent = S.tut_setupBody;
+    document.getElementById('tutStepBody').innerHTML = S.tut_setupBody;
     document.getElementById('tutStepProgress').textContent = S.tut_setupShouldersNo + '   ' + S.tut_setupHipsNo;
     document.querySelectorAll('.tut-dot').forEach(d => { d.classList.remove('active', 'done'); });
     const sensRow = document.getElementById('tutSensRow');
