@@ -3,7 +3,7 @@
 **A browser-native gesture-based music conducting simulator.** Load any MIDI file and conduct it in real time using only your webcam — no installation, no plugins.
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-air--conductor.vercel.app-blue)](https://air-conductor.vercel.app)
-[![Demo Video](https://img.shields.io/badge/Demo-YouTube-red)](https://www.youtube.com/watch?v=h5MHFWs-HSU)
+[![Demo Video](https://img.shields.io/badge/Demo-YouTube-red)](https://www.youtube.com/watch?v=4ec3dloOTK0)
 
 ---
 
